@@ -1,3 +1,6 @@
+const CACHE_KEY = "supermotor:dashboard-cache";
+const CACHE_MAX_AGE = 5 * 60 * 1000;
+
 const state = {
   dashboard: null,
   selectedId: localStorage.getItem("supermotor:selected-project") || "",
@@ -6,6 +9,20 @@ const state = {
   searchQuery: "",
   activityFilter: "all",
 };
+
+function saveCache(data) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_MAX_AGE) return null;
+    return data;
+  } catch { return null; }
+}
 
 const elements = Object.fromEntries([
   "connection-dot", "connection-label", "project-count", "project-list", "project-search", "project-type", "project-name", "project-objective",
@@ -364,6 +381,7 @@ async function fetchState() {
   const response = await fetch("/api/state", { cache: "no-store" });
   if (!response.ok) throw new Error("Não foi possível carregar o painel");
   state.dashboard = await response.json();
+  saveCache(state.dashboard);
   render();
 }
 
@@ -371,10 +389,21 @@ function connectEvents() {
   const events = new EventSource("/api/events");
   events.addEventListener("state", (event) => {
     state.dashboard = JSON.parse(event.data);
+    saveCache(state.dashboard);
     updateConnection(true);
     render();
   });
-  events.onerror = () => updateConnection(false);
+  events.onerror = () => {
+    updateConnection(false);
+    if (!state.dashboard) {
+      const cached = loadCache();
+      if (cached) {
+        state.dashboard = cached;
+        render();
+        showToast("Modo offline — dados em cache");
+      }
+    }
+  };
 }
 
 elements["project-search"].addEventListener("input", (event) => {

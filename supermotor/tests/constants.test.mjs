@@ -5,9 +5,14 @@ import { normalizeType, slugify, TYPES, TEXT_EXTENSIONS, DEFAULT_BRAND } from ".
 describe("normalizeType", () => {
   it("normalizes site types", () => {
     assert.equal(normalizeType("site"), "site");
-    assert.equal(normalizeType("landing"), "site");
-    assert.equal(normalizeType("landing-page"), "site");
     assert.equal(normalizeType("website"), "site");
+    assert.equal(normalizeType("institucional"), "site");
+  });
+
+  it("normalizes landing types", () => {
+    assert.equal(normalizeType("landing"), "landing");
+    assert.equal(normalizeType("landing-page"), "landing");
+    assert.equal(normalizeType("lp"), "landing");
   });
 
   it("normalizes app types", () => {

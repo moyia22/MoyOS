@@ -231,15 +231,7 @@ function listProjectsCommand(parsed) {
   const verbose = parsed.options.verbose || parsed.options.v;
   const jsonOutput = parsed.options.json;
 
-  ui.title("SUPERMOTOR \u2014 projetos");
   const projects = listRegisteredProjects();
-  if (!projects.length) {
-    console.log("  Nenhum projeto registrado.\n");
-    console.log("  Use: supermotor registrar <caminho> para registrar um projeto existente.");
-    console.log("  Use: supermotor criar para criar um novo projeto.\n");
-    return;
-  }
-
   if (jsonOutput) {
     const data = projects.map((project) => ({
       name: project.name,
@@ -251,6 +243,14 @@ function listProjectsCommand(parsed) {
       lastSeenAt: project.lastSeenAt,
     }));
     console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+
+  ui.title("SUPERMOTOR \u2014 projetos");
+  if (!projects.length) {
+    console.log("  Nenhum projeto registrado.\n");
+    console.log("  Use: supermotor registrar <caminho> para registrar um projeto existente.");
+    console.log("  Use: supermotor criar para criar um novo projeto.\n");
     return;
   }
 

@@ -252,6 +252,7 @@ function generateOnboardingContext(data) {
 async function runOnboarding() {
   const terminal = createInterface({ input, output });
   const TOTAL_PHASES = 10;
+  ui.debug("Iniciando onboarding interativo");
 
   const savePartial = () => {
     try {
@@ -260,7 +261,7 @@ async function runOnboarding() {
       const partialPath = join(partialDir, ".onboarding-partial.json");
       writeFileSync(partialPath, JSON.stringify({ savedAt: new Date().toISOString(), data: terminal._partialData || {} }, null, 2), "utf8");
     } catch (err) {
-      // Best effort — if save fails, progress will be lost on Ctrl+C
+      ui.debug(`Falha ao salvar progresso parcial: ${err.message}`);
     }
   };
 

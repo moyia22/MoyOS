@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib/ui.mjs";
 import { ui, color } from "./lib/ui.mjs";
 import { createProject } from "./lib/project.mjs";
@@ -16,10 +19,15 @@ import { statusCommand } from "./lib/commands.mjs";
 import { startDashboardDaemon } from "./lib/commands.mjs";
 import { stopDashboardDaemon } from "./lib/commands.mjs";
 import { dashboardDaemonStatus } from "./lib/commands.mjs";
+import { loadConfig, updateConfig, resetConfig, getConfigPath } from "./lib/config.mjs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+let VERSION = "3.0.0";
+try { VERSION = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")).version; } catch {}
 
 function help() {
   console.log(`
-${color("1;38;5;208", "SUPERMOTOR")} ${color("2", "3.0")} — Motor local para criar projetos de alto nivel
+${color("1;38;5;208", "SUPERMOTOR")} ${color("2", VERSION)} — Motor local para criar projetos de alto nivel
 
 ${color("1", "Uso:")}
   ${color("36", "supermotor")} ${color("37", "onboarding")}
@@ -31,6 +39,7 @@ ${color("1", "Uso:")}
 
 ${color("1", "Tipos de projeto:")}
   ${color("33", "site")}       Landing page ou site institucional
+  ${color("33", "landing")}    Pagina unica focada em conversao
   ${color("33", "app")}        Aplicacao com dashboard e funcionalidades
   ${color("33", "carrossel")}  Carrossel para redes sociais
   ${color("33", "crm")}        CRM completo com Supabase
@@ -48,6 +57,11 @@ ${color("1", "Comandos:")}
   agentes       Mostra agentes trabalhando em um projeto
   status        Mostra resumo do status de um projeto
   doctor        Diagnostico do ambiente e dependencias
+  config        Gerencia configuracoes do SUPERMOTOR
+
+${color("1", "Opcoes globais:")}
+  --version               Mostra a versao do SUPERMOTOR
+  --verbose               Modo detalhado com informacoes extras
 
 ${color("1", "Opcoes de criacao:")}
   --brief "objetivo"       Define o objetivo do projeto
@@ -90,6 +104,13 @@ async function main() {
     help();
     return;
   }
+
+  if (parsed.options.version || ["version", "versao", "versão"].includes(command)) {
+    console.log(`supermotor ${VERSION}`);
+    return;
+  }
+
+  globalThis.SUPERMOTOR_VERBOSE = Boolean(parsed.options.verbose || parsed.options.v);
 
   if (!command) {
     parsed.positionals = ["criar"];
@@ -166,6 +187,34 @@ async function main() {
 
   if (["onboarding", "onboard", "conhecer", "intro", "introducao", "introdução"].includes(command)) {
     await runOnboarding();
+    return;
+  }
+
+  if (["config", "configuracao", "configuração", "preferencias"].includes(command)) {
+    const action = parsed.positionals[1]?.toLowerCase();
+    if (action === "reset") {
+      resetConfig();
+      ui.ok("Configuracao redefinida para os padroes.");
+      return;
+    }
+    if (action === "path") {
+      console.log(getConfigPath());
+      return;
+    }
+    const key = parsed.positionals[2];
+    const value = parsed.positionals[3];
+    if (key && value !== undefined) {
+      const patch = {};
+      const keys = key.split(".");
+      let obj = patch;
+      for (let i = 0; i < keys.length - 1; i++) { obj[keys[i]] = {}; obj = obj[keys[i]]; }
+      obj[keys[keys.length - 1]] = value === "true" ? true : value === "false" ? false : isNaN(value) ? value : Number(value);
+      updateConfig(patch);
+      ui.ok(`${key} atualizado para ${value}`);
+    } else {
+      const config = loadConfig();
+      console.log(JSON.stringify(config, null, 2));
+    }
     return;
   }
 

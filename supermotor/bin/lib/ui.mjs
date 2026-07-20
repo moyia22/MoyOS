@@ -10,6 +10,7 @@ const ui = {
   fail: (text) => console.error(`${color("31", "\u2715")} ${text}`),
   hint: (text) => console.log(`${color("2", "\u2192")} ${text}`),
   step: (num, total, text) => console.log(`\n${color("1;38;5;208", `[${num}/${total}]`)} ${color("1", text)}`),
+  debug: (text) => { if (globalThis.SUPERMOTOR_VERBOSE) console.log(`${color("2", "[debug]")} ${text}`); },
 };
 
 function spinner(text) {

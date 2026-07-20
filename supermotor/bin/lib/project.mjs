@@ -12,6 +12,8 @@ import { copyTemplate, npmInstall, commandExists, runGit } from "./templates.mjs
 import { initializeProjectTracking } from "../supermotor-state.mjs";
 
 async function createProjectFromAnswers(type, answers, slug, destination, options = {}) {
+  ui.debug(`Tipo: ${type}, Nome: ${answers.name}, Slug: ${slug}`);
+  ui.debug(`Destino: ${destination}`);
   if (type === "crm") {
     const repository = resolve(options.repository || WACRM_REPOSITORY);
     const sourceRef = String(options.sourceRef || WACRM_STABLE_REF).trim();
@@ -205,7 +207,7 @@ async function promptForMissing(type, name, brief, options = {}) {
   if (!input.isTTY) {
     let piped = "";
     const readStdin = new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(piped), 5000);
+      const timeout = setTimeout(() => resolve(piped), 500);
       input.on("data", (chunk) => { piped += chunk; });
       input.on("end", () => { clearTimeout(timeout); resolve(piped); });
     });

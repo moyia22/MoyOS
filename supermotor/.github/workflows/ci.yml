@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Syntax check
+        run: |
+          node -c bin/supermotor.mjs
+          node -c bin/lib/ui.mjs
+          node -c bin/lib/brand.mjs
+          node -c bin/lib/tokens.mjs
+          node -c bin/lib/csv.mjs
+          node -c bin/lib/constants.mjs
+          node -c bin/lib/project.mjs
+          node -c bin/lib/onboarding.mjs
+          node -c bin/lib/templates.mjs
+          node -c bin/lib/design.mjs
+          node -c bin/lib/commands.mjs
+          node -c bin/dashboard-server.mjs
+      - name: Unit tests
+        run: node --test tests/brand.test.mjs tests/tokens.test.mjs tests/csv.test.mjs tests/constants.test.mjs tests/project.test.mjs
+      - name: Smoke test
+        run: node tests/smoke.mjs
+      - name: Dashboard test
+        run: node tests/dashboard.mjs
+      - name: Integration tests
+        run: node --test tests/integration.test.mjs

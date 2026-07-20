@@ -24,10 +24,16 @@ const ICON_EXTENSIONS = new Set([".ico", ".jpg", ".jpeg", ".png", ".svg"]);
 
 const TYPES = {
   site: {
-    aliases: ["site", "landing", "landing-page", "website"],
+    aliases: ["site", "website", "institucional"],
     label: "Site premium",
     template: "site",
-    description: "site de marketing, institucional, portf\u00f3lio ou landing page",
+    description: "site de marketing, institucional ou portfolio",
+  },
+  landing: {
+    aliases: ["landing", "landing-page", "lp"],
+    label: "Landing page",
+    template: "landing",
+    description: "pagina unica focada em conversao e captação de leads",
   },
   app: {
     aliases: ["app", "aplicacao", "aplica\u00e7\u00e3o", "dashboard", "sistema"],
