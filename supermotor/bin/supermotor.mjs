@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { parseArgs } from "./lib/ui.mjs";
-import { ui } from "./lib/ui.mjs";
+import { ui, color } from "./lib/ui.mjs";
 import { createProject } from "./lib/project.mjs";
 import { validateProject } from "./lib/project.mjs";
 import { runOnboarding } from "./lib/onboarding.mjs";
@@ -19,29 +19,24 @@ import { dashboardDaemonStatus } from "./lib/commands.mjs";
 
 function help() {
   console.log(`
-SUPERMOTOR 3.0
+${color("1;38;5;208", "SUPERMOTOR")} ${color("2", "3.0")} — Motor local para criar projetos de alto nivel
 
-Uso:
-  supermotor onboarding
-  supermotor criar site "Nome do projeto"
-  supermotor criar app "Nome do projeto"
-  supermotor criar carrossel "Nome do projeto"
-  supermotor criar crm "Nome do CRM"
-  supermotor painel
-  supermotor painel iniciar|parar|status
-  supermotor listar [--verbose] [--json]
-  supermotor remover <caminho> [--deletar] [--forcar] [--dry-run]
-  supermotor registrar [caminho]
-  supermotor atividade [projeto] --agente "Nome" --status working --acao "O que esta fazendo"
-  supermotor atividades [projeto] [--limite 10]
-  supermotor agentes [projeto]
-  supermotor status [projeto]
-  supermotor validar [caminho]
-  supermotor doctor
+${color("1", "Uso:")}
+  ${color("36", "supermotor")} ${color("37", "onboarding")}
+  ${color("36", "supermotor")} ${color("37", "criar")} ${color("33", "<tipo>")} ${color("37", "\"Nome do projeto\"")}
+  ${color("36", "supermotor")} ${color("37", "validar")} ${color("2", "[caminho]")}
+  ${color("36", "supermotor")} ${color("37", "painel")} ${color("2", "[iniciar|parar|status]")}
+  ${color("36", "supermotor")} ${color("37", "listar")} ${color("2", "[--verbose] [--json]")}
+  ${color("36", "supermotor")} ${color("37", "doctor")}
 
-Comandos:
-  onboarding    Assistente interativo que conhece voce e seu negocio,
-                depois sugere e cria o projeto ideal
+${color("1", "Tipos de projeto:")}
+  ${color("33", "site")}       Landing page ou site institucional
+  ${color("33", "app")}        Aplicacao com dashboard e funcionalidades
+  ${color("33", "carrossel")}  Carrossel para redes sociais
+  ${color("33", "crm")}        CRM completo com Supabase
+
+${color("1", "Comandos:")}
+  onboarding    Assistente interativo que conhece voce e seu negocio
   criar         Cria um novo projeto a partir de um template
   validar       Verifica se um projeto atende aos padroes do SUPERMOTOR
   painel        Inicia o painel local de acompanhamento
@@ -54,12 +49,7 @@ Comandos:
   status        Mostra resumo do status de um projeto
   doctor        Diagnostico do ambiente e dependencias
 
-Opcoes:
-  --verbose     Mostra detalhes ao listar projetos (atividades, agentes, datas)
-  --json        Saida em formato JSON (para listar)
-  --forcar      Pula confirmacao ao remover
-  --dry-run     Mostra o que seria removido sem executar
-  --limite N    Numero de atividades a mostrar (padrao: 10)
+${color("1", "Opcoes de criacao:")}
   --brief "objetivo"       Define o objetivo do projeto
   --sucesso "resultado"    Define como medir o sucesso
   --essenciais "itens"     Define o que precisa funcionar primeiro
@@ -69,16 +59,26 @@ Opcoes:
   --tom "personalidade"    Define a personalidade da marca
   --cor "#ff5a1f"          Define a cor de destaque
   --favicon caminho        Usa um favicon .ico, .png, .jpg ou .svg
-  --crm-repo caminho/url   Usa um fork ou espelho do wacrm
-  --crm-ref referencia     Define branch/tag do CRM (padrao: main estavel)
   --rapido                  Usa Brand Kit e favicon automaticos
   --saida caminho          Define a pasta exata de destino
   --sem-instalar           Cria os arquivos sem executar npm install
-  --sem-build              Faz somente validacao estatica
+  --sem-build              Pula validacao de build apos criacao
+
+${color("1", "Opcoes de painel:")}
   --porta 4545             Define a porta do painel local
   --nao-abrir              Inicia o painel sem abrir o navegador
 
-Sem argumentos, o criador abre o assistente guiado.
+${color("1", "Opcoes de listagem:")}
+  --verbose                Mostra atividades, agentes e datas
+  --json                   Saida em formato JSON
+
+${color("1", "Exemplos:")}
+  ${color("2", "supermotor onboarding")}
+  ${color("2", "supermotor criar site \"Minha Empresa\"")}
+  ${color("2", "supermotor criar app \"Dashboard\" --rapido")}
+  ${color("2", "supermotor validar ./meu-projeto")}
+  ${color("2", "supermotor listar --verbose")}
+
 `);
 }
 

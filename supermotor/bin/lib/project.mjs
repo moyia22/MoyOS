@@ -132,14 +132,18 @@ async function createProjectFromAnswers(type, answers, slug, destination, option
 
   const skipBuild = Boolean(options.skipBuild);
   if (!skipInstall && !skipBuild) {
-    ui.info("Executando typecheck + lint + build...");
     const { runNpm } = await import("./templates.mjs");
-    const check = runNpm(["run", "check"], { cwd: destination, stdio: "inherit" });
+    const { spinner: makeSpinner, formatDuration } = await import("./ui.mjs");
+    const spin = makeSpinner("Executando typecheck + lint + build...");
+    const buildStart = performance.now();
+    spin.start();
+    const check = runNpm(["run", "check"], { cwd: destination, stdio: "ignore" });
+    const buildDuration = performance.now() - buildStart;
     if (check.status !== 0) {
-      ui.warn("Quality gate reprovada — o projeto foi criado, mas pode ter erros.");
-      ui.info("Rode: cd \"" + displayPath + "\" && npm run check para detalhes.");
+      spin.fail(`Quality gate reprovada (${formatDuration(buildDuration)})`);
+      ui.hint("Rode manualmente: cd \"" + displayPath + "\" && npm run check");
     } else {
-      ui.ok("Quality gate aprovada — projeto pronto para uso.");
+      spin.succeed(`Quality gate aprovada (${formatDuration(buildDuration)})`);
     }
   }
 
@@ -423,17 +427,21 @@ async function validateProject(parsed) {
     return;
   }
 
-  ui.info("Executando typecheck, lint e build...");
   const { runNpm } = await import("./templates.mjs");
-  const result = runNpm(["run", "check"], { cwd: project, stdio: "inherit" });
+  const { spinner: makeSpinner, formatDuration } = await import("./ui.mjs");
+  const spin = makeSpinner("Executando typecheck, lint e build...");
+  const buildStart = performance.now();
+  spin.start();
+  const result = runNpm(["run", "check"], { cwd: project, stdio: "ignore" });
+  const buildDuration = performance.now() - buildStart;
   if (result.status !== 0) {
-    if (result.error) ui.fail(result.error.message);
-    ui.fail("Quality gate t\u00e9cnica reprovada");
+    spin.fail(`Quality gate tecnica reprovada (${formatDuration(buildDuration)})`);
+    if (result.error) ui.hint(result.error.message);
     process.exitCode = result.status || 1;
     return;
   }
 
-  ui.ok("Quality gate t\u00e9cnica aprovada");
+  spin.succeed(`Quality gate tecnica aprovada (${formatDuration(buildDuration)})`);
   console.log("\nProjeto aprovado pelo SUPERMOTOR.\n");
 }
 

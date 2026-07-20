@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "./constants.mjs";
-import { ui } from "./ui.mjs";
+import { ui, spinner, formatDuration } from "./ui.mjs";
 
 function copyTemplate(source, destination) {
   cpSync(source, destination, { recursive: true, force: true });
@@ -38,18 +38,22 @@ function runGit(args, options = {}) {
 }
 
 function npmInstall(directory) {
-  ui.info("Instalando depend\u00eancias...");
+  const spin = spinner("Instalando dependencias...");
+  const start = performance.now();
+  spin.start();
   const result = runNpm(["install", "--no-audit", "--no-fund"], {
     cwd: directory,
-    stdio: "inherit",
+    stdio: "ignore",
   });
+  const duration = performance.now() - start;
 
   if (result.status !== 0) {
-    ui.warn("A instala\u00e7\u00e3o falhou, mas o projeto foi preservado. Rode npm install dentro dele.");
+    spin.fail(`Instalacao falhou apos ${formatDuration(duration)}`);
+    ui.hint("Rode manualmente: cd \"" + directory + "\" && npm install");
     return false;
   }
 
-  ui.ok("Depend\u00eancias instaladas");
+  spin.succeed(`Dependencias instaladas (${formatDuration(duration)})`);
   return true;
 }
 
