@@ -130,6 +130,19 @@ async function createProjectFromAnswers(type, answers, slug, destination, option
   const skipInstall = Boolean(options.skipInstall);
   if (!skipInstall) npmInstall(destination);
 
+  const skipBuild = Boolean(options.skipBuild);
+  if (!skipInstall && !skipBuild) {
+    ui.info("Executando typecheck + lint + build...");
+    const { runNpm } = await import("./templates.mjs");
+    const check = runNpm(["run", "check"], { cwd: destination, stdio: "inherit" });
+    if (check.status !== 0) {
+      ui.warn("Quality gate reprovada — o projeto foi criado, mas pode ter erros.");
+      ui.info("Rode: cd \"" + displayPath + "\" && npm run check para detalhes.");
+    } else {
+      ui.ok("Quality gate aprovada — projeto pronto para uso.");
+    }
+  }
+
   const displayPath = relative(process.cwd(), destination) || destination;
   console.log("\nProximos passos:\n");
   console.log(`  cd "${displayPath}"`);
@@ -298,6 +311,7 @@ async function createProject(parsed) {
         await createProjectFromAnswers(resolvedType, answers, slug, destination, {
           injectContext: true,
           skipInstall: Boolean(parsed.options["sem-instalar"] || parsed.options["skip-install"]),
+          skipBuild: Boolean(parsed.options["sem-build"]),
           repository: parsed.options["crm-repo"],
           sourceRef: parsed.options["crm-ref"],
         });
@@ -328,6 +342,7 @@ async function createProject(parsed) {
 
   await createProjectFromAnswers(type, answers, slug, destination, {
     skipInstall: Boolean(parsed.options["sem-instalar"] || parsed.options["skip-install"]),
+    skipBuild: Boolean(parsed.options["sem-build"]),
     repository: parsed.options["crm-repo"],
     sourceRef: parsed.options["crm-ref"],
   });

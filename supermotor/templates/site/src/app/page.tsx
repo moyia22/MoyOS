@@ -108,7 +108,7 @@ export default function Home() {
       <section className="final-cta" id="contato">
         <p className="section-label">Próximo movimento</p>
         <h2>Vamos transformar<br />a ideia em presença?</h2>
-        <a className="button button-primary" href="mailto:contato@exemplo.com">Iniciar conversa <ArrowUpRight size={20} /></a>
+        <a className="button button-primary" href="#contato">Iniciar conversa <ArrowUpRight size={20} /></a>
       </section>
 
       <footer>

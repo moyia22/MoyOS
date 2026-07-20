@@ -83,7 +83,7 @@ h1 em { color: var(--accent); font-weight: 400; }
 .spotlight-panel { background: var(--paper); color: var(--ink); min-height: 520px; padding: clamp(25px, 4vw, 52px); transform: rotate(1.8deg); }
 .panel-header, .panel-footer { display: flex; font-size: .7rem; font-weight: 800; justify-content: space-between; letter-spacing: .1em; text-transform: uppercase; }
 .color-row { display: grid; grid-template-columns: repeat(4, 1fr); height: 90px; margin: 56px 0; }
-.color-row span:nth-child(1) { background: #11110f; }.color-row span:nth-child(2) { background: #ff5a1f; }.color-row span:nth-child(3) { background: #ffd9c8; }.color-row span:nth-child(4) { background: #fffdf7; border: 1px solid var(--line); }
+.color-row span:nth-child(1) { background: #11110f; }.color-row span:nth-child(2) { background: var(--accent); }.color-row span:nth-child(3) { background: var(--accent-soft); }.color-row span:nth-child(4) { background: var(--paper); border: 1px solid var(--line); }
 .type-sample { align-items: end; border-bottom: 1px solid var(--line); border-top: 1px solid var(--line); display: grid; gap: 30px; grid-template-columns: .7fr 1.3fr; padding: 44px 0; }
 .type-sample span { color: var(--accent); font-family: Georgia, serif; font-size: clamp(4rem, 8vw, 8rem); line-height: .7; }
 .type-sample p { font-family: Georgia, serif; font-size: clamp(1.6rem, 3vw, 3rem); letter-spacing: -.04em; line-height: 1; margin: 0; }

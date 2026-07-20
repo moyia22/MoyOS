@@ -78,7 +78,7 @@ export function DashboardShell() {
         <div className="sidebar-bottom">
           <button><CircleHelp size={18} /> Central de ajuda</button>
           <button><Settings size={18} /> Configurações</button>
-          <div className="user-card"><span className="user-avatar">MO</span><div><strong>Seu nome</strong><small>Administrador</small></div><MoreHorizontal size={17} /></div>
+          <div className="user-card"><span className="user-avatar">__BRAND_INITIAL__</span><div><strong>__BRAND_NAME__</strong><small>Administrador</small></div><MoreHorizontal size={17} /></div>
         </div>
       </aside>
 
@@ -96,7 +96,7 @@ export function DashboardShell() {
 
         <div className="dashboard-content">
           <section className="welcome-row">
-            <div><p>Terça-feira, 14 de julho <span className="demo-badge">Dados de demonstração</span></p><h1>{active === "Visão geral" ? "Bom dia, Moy." : active}</h1><span>Veja o que merece sua atenção hoje.</span></div>
+            <div><p>{new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} <span className="demo-badge">Dados de demonstração</span></p><h1>{active === "Visão geral" ? "Bom dia!" : active}</h1><span>Veja o que merece sua atenção hoje.</span></div>
             <button className="period-button">Últimos {period} <ChevronDown size={16} /></button>
           </section>
 
