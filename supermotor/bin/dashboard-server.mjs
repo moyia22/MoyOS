@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, watch, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,10 @@ const STATIC_ROUTES = new Map([
 const FILE_CACHE = new Map();
 const IGNORED_DIRECTORIES = new Set([".git", ".next", ".supermotor", "node_modules", "dist", "build", "coverage", ".turbo", ".cache"]);
 const STATUS_PROGRESS = { planning: 18, working: 48, blocked: 48, testing: 76, reviewing: 88, done: 100, idle: 10 };
+const FILE_WATCHERS = new Map();
+const SSE_CLIENTS = new Set();
+const FILE_CHANGE_BUFFER = new Map();
+const FLUSH_INTERVAL_MS = 800;
 
 function safeTextFile(path, maxLength = 5000) {
   if (!existsSync(path)) return "";
@@ -72,6 +76,53 @@ function recentFiles(projectPath) {
   const result = files.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 10);
   FILE_CACHE.set(projectPath, { timestamp: Date.now(), files: result });
   return result;
+}
+
+function broadcastSSE(event, data) {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const client of SSE_CLIENTS) {
+    try { client.write(payload); } catch { SSE_CLIENTS.delete(client); }
+  }
+}
+
+function startFileWatcher(projectPath, projectId) {
+  if (FILE_WATCHERS.has(projectPath)) return;
+  let watcher;
+  try {
+    watcher = watch(projectPath, { recursive: true }, (eventType, filename) => {
+      if (!filename) return;
+      const parts = filename.split(/[/\\]/);
+      if (parts.some((part) => IGNORED_DIRECTORIES.has(part))) return;
+      if (!FILE_CHANGE_BUFFER.has(projectId)) {
+        FILE_CHANGE_BUFFER.set(projectId, { changes: [], timer: null });
+      }
+      const buffer = FILE_CHANGE_BUFFER.get(projectId);
+      buffer.changes.push({ type: eventType, path: filename, at: new Date().toISOString() });
+      if (buffer.changes.length > 20) buffer.changes = buffer.changes.slice(-20);
+      if (!buffer.timer) {
+        buffer.timer = setTimeout(() => {
+          FILE_CACHE.delete(projectPath);
+          const state = getDashboardState();
+          broadcastSSE("state", state);
+          FILE_CHANGE_BUFFER.delete(projectId);
+        }, FLUSH_INTERVAL_MS);
+      }
+    });
+    FILE_WATCHERS.set(projectPath, watcher);
+  } catch {
+    // File watching not supported on this filesystem
+  }
+}
+
+function stopAllFileWatchers() {
+  for (const [path, watcher] of FILE_WATCHERS) {
+    try { watcher.close(); } catch { /* ignore */ }
+  }
+  FILE_WATCHERS.clear();
+  for (const buffer of FILE_CHANGE_BUFFER.values()) {
+    if (buffer.timer) clearTimeout(buffer.timer);
+  }
+  FILE_CHANGE_BUFFER.clear();
 }
 
 function conversationFor(projectPath, type) {
@@ -142,6 +193,9 @@ function readOnboardingContext() {
 
 export function getDashboardState() {
   const projects = listRegisteredProjects().map(hydrateProject);
+  for (const project of projects) {
+    startFileWatcher(project.path, project.id);
+  }
   const onboarding = readOnboardingContext();
   return {
     generatedAt: new Date().toISOString(),
@@ -217,10 +271,14 @@ async function handleRequest(request, response) {
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     });
+    SSE_CLIENTS.add(response);
     const send = () => response.write(`event: state\ndata: ${JSON.stringify(getDashboardState())}\n\n`);
     send();
     const timer = setInterval(send, 2000);
-    request.on("close", () => clearInterval(timer));
+    request.on("close", () => {
+      clearInterval(timer);
+      SSE_CLIENTS.delete(response);
+    });
     return;
   }
 
@@ -320,6 +378,7 @@ export async function startDashboard({ port = 4545, open = true } = {}) {
   console.log(`\nSUPERMOTOR Control Room rodando em ${url}`);
   console.log("Acesso restrito a este computador. Pressione Ctrl+C para encerrar.\n");
   if (open) openBrowser(url);
+  server.on("close", stopAllFileWatchers);
   return { server, url };
 }
 
