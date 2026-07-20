@@ -1,8 +1,8 @@
-# MazyOS
+# MoyOS
 
 O sistema operacional do seu negócio dentro do Claude Code.
 
-Você acaba de instalar o MazyOS. Em alguns minutos, sua empresa vai ter uma memória própria, uma identidade visual aplicada em tudo que o sistema gerar, e 15 skills prontas pra fazer marketing, SEO, ads e operação rodarem com você dirigindo.
+Você acaba de instalar o MoyOS. Em alguns minutos, sua empresa vai ter uma memória própria, uma identidade visual aplicada em tudo que o sistema gerar, e 15 skills prontas pra fazer marketing, SEO, ads e operação rodarem com você dirigindo.
 
 Bora voar.
 
@@ -15,7 +15,7 @@ Dois caminhos. Escolhe o que combina contigo.
 Abre o Claude Code em qualquer pasta e cola:
 
 ```
-Clona o https://github.com/mazzeoia/MazyOS.git na pasta atual,
+Clona o https://github.com/moyia22/MoyOS.git na pasta atual,
 entra nela e roda o /instalar.
 ```
 
@@ -24,14 +24,14 @@ Ele clona, entra na pasta nova e dispara a entrevista de setup. Você só respon
 ### Pelo terminal (mais previsível)
 
 ```
-git clone https://github.com/mazzeoia/MazyOS.git
-cd MazyOS
+git clone https://github.com/moyia22/MoyOS.git
+cd MoyOS
 code .
 ```
 
 Na janela do VS Code que abrir: terminal integrado → `claude` → `/instalar`.
 
-Quando o `/instalar` terminar, renomeia a pasta `MazyOS/` pro nome do teu negócio (fecha o VS Code, renomeia no Explorer/Finder, abre de novo). A pasta não fica como "MazyOS" — ela é o teu negócio agora.
+Quando o `/instalar` terminar, renomeia a pasta `MoyOS/` pro nome do teu negócio (fecha o VS Code, renomeia no Explorer/Finder, abre de novo). A pasta não fica como "MoyOS" — ela é o teu negócio agora.
 
 O `/instalar` roda uma vez só. Te entrevista sobre o negócio, monta a memória e configura o sistema. Depois disso, é só usar.
 
@@ -53,11 +53,11 @@ O `/instalar` roda uma vez só. Te entrevista sobre o negócio, monta a memória
 
 IA não é uma ferramenta que sua empresa usa. É o sistema operacional em que ela roda.
 
-A diferença não é velocidade. É capacidade nova — uma pessoa com IA constrói o que antes exigia time inteiro. Cada processo crítico que hoje roda em open loop (decide → executa → não mede → repete cego) vira closed loop dentro do MazyOS (decide → executa → captura → realimenta → ajusta sozinho).
+A diferença não é velocidade. É capacidade nova — uma pessoa com IA constrói o que antes exigia time inteiro. Cada processo crítico que hoje roda em open loop (decide → executa → não mede → repete cego) vira closed loop dentro do MoyOS (decide → executa → captura → realimenta → ajusta sozinho).
 
 O sistema não substitui você. Vira parte da sua empresa.
 
-## Como o MazyOS pensa
+## Como o MoyOS pensa
 
 `_memoria/` é o cérebro. Tudo que importa do seu negócio mora aqui — quem é a empresa, como ela fala, o que tá em foco essa semana. O Claude lê isso antes de cada resposta. Quanto melhor a memória, melhor o sistema.
 
