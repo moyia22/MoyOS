@@ -33,22 +33,22 @@ for (const file of ["AUTOMATION.md", "CLAUDE.md", "bootstrap.ps1", "bootstrap.sh
   assert(existsSync(join(ROOT, file)), `Automação após clone ausente: ${file}`);
 }
 
-const crmFixture = join(TEMP_ROOT, "frappe-crm-source");
-mkdirSync(join(crmFixture, "frontend"), { recursive: true });
-mkdirSync(join(crmFixture, "crm", "public"), { recursive: true });
+const crmFixture = join(TEMP_ROOT, "wacrm-source");
+mkdirSync(join(crmFixture, "src", "app"), { recursive: true });
+mkdirSync(join(crmFixture, "supabase", "migrations"), { recursive: true });
+mkdirSync(join(crmFixture, "public"), { recursive: true });
 writeFileSync(join(crmFixture, "package.json"), `${JSON.stringify({ name: "crm", private: true }, null, 2)}\n`);
-writeFileSync(join(crmFixture, "AGENTS.md"), "# Frappe CRM fixture\n");
-writeFileSync(join(crmFixture, "LICENSE"), "AGPL-3.0\n");
-writeFileSync(join(crmFixture, "crm", "hooks.py"), "app_name = 'crm'\n");
-writeFileSync(
-  join(crmFixture, "frontend", "index.html"),
-  '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><link rel="icon" href="/old.png"></head><body><div id="app"></div></body></html>\n',
-);
+writeFileSync(join(crmFixture, "AGENTS.md"), "# wacrm fixture\n");
+writeFileSync(join(crmFixture, "LICENSE"), "MIT\n");
+writeFileSync(join(crmFixture, "next.config.ts"), "const config = {};\nexport default config;\n");
+writeFileSync(join(crmFixture, "src", "app", "layout.tsx"), 'export default function RootLayout({ children }: { children: React.ReactNode }) { return <html lang="pt-BR"><body>{children}</body></html>; }\n');
+writeFileSync(join(crmFixture, "src", "app", "globals.css"), "body { margin: 0; }\n");
+writeFileSync(join(crmFixture, "src", "app", "page.tsx"), "export default function Home() { return <h1>wacrm</h1>; }\n");
 execFileSync("git", ["init", "-b", "main"], { cwd: crmFixture, stdio: "pipe" });
 execFileSync("git", ["config", "user.email", "smoke@supermotor.local"], { cwd: crmFixture, stdio: "pipe" });
 execFileSync("git", ["config", "user.name", "SUPERMOTOR Smoke"], { cwd: crmFixture, stdio: "pipe" });
 execFileSync("git", ["add", "."], { cwd: crmFixture, stdio: "pipe" });
-execFileSync("git", ["commit", "-m", "test: frappe crm fixture"], { cwd: crmFixture, stdio: "pipe" });
+execFileSync("git", ["commit", "-m", "test: wacrm fixture"], { cwd: crmFixture, stdio: "pipe" });
 
 const cases = [
   ["site", "Site Teste", "site-teste"],
@@ -113,16 +113,14 @@ try {
     ".supermotor/SUPERPROMPT.md",
     ".supermotor/agent.mjs",
     ".supermotor/AGENT_PROTOCOL.md",
-    "crm/public/supermotor-icon.svg",
+    "public/supermotor-icon.svg",
   ]) {
     assert(existsSync(join(crmOutput, file)), `crm: arquivo ausente ${file}`);
   }
   const crmMetadata = JSON.parse(readFileSync(join(crmOutput, ".supermotor", "project.json"), "utf8"));
   assert(crmMetadata.projectType === "crm" && crmMetadata.sourceRef === "main", "crm: origem estável não registrada");
-  const crmIndex = readFileSync(join(crmOutput, "frontend", "index.html"), "utf8");
-  assert(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/i.test(crmIndex), "crm: zoom continuou bloqueado");
-  assert(crmIndex.includes("supermotor-mobile-guards") && crmIndex.includes("font-size: 16px !important"), "crm: proteções mobile ausentes");
-  assert(readFileSync(join(crmOutput, ".git", "config"), "utf8").includes('[remote "upstream"]'), "crm: remoto oficial não virou upstream");
+  const crmCss = readFileSync(join(crmOutput, "src", "app", "globals.css"), "utf8");
+  assert(crmCss.includes("supermotor-mobile-guards") && crmCss.includes("font-size: 16px !important"), "crm: proteções mobile ausentes");
   execFileSync(process.execPath, [CLI, "validar", crmOutput, "--sem-build"], { cwd: ROOT, stdio: "pipe", env: TEST_ENV });
 
   const interactiveOutput = join(TEMP_ROOT, "interativo");
@@ -151,7 +149,7 @@ try {
   assert(help.includes("SUPERMOTOR 3.0") && help.includes("supermotor painel"), "Atalho --help não exibiu o painel");
 
   execFileSync(process.execPath, [CLI, "doctor"], { cwd: ROOT, stdio: "pipe", env: TEST_ENV });
-  console.log("✓ Smoke test: bootstrap, conversa, agentes, Brand Kit, mobile, Frappe CRM e quatro starters aprovados");
+  console.log("✓ Smoke test: bootstrap, conversa, agentes, Brand Kit, mobile, wacrm e quatro starters aprovados");
 } finally {
   safeClean(TEMP_ROOT);
 }

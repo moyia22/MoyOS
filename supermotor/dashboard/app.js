@@ -23,7 +23,7 @@ const STATUS_LABELS = {
   idle: "Pausado",
 };
 
-const TYPE_LABELS = { site: "SITE", app: "APLICAÇÃO", carousel: "CARROSSEL", crm: "FRAPPE CRM", project: "PROJETO" };
+const TYPE_LABELS = { site: "SITE", app: "APLICAÇÃO", carousel: "CARROSSEL", crm: "WACRM", project: "PROJETO" };
 
 function selectedProject() {
   const projects = state.dashboard?.projects || [];

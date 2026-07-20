@@ -23,7 +23,7 @@ O bootstrap confirma Node.js e Git, executa o setup, roda o diagnóstico, inicia
 ## Depois da preparação
 
 - Se o usuário já descreveu um projeto, crie o tipo correspondente sem repetir perguntas respondidas.
-- Se pediu CRM, use `frappe/crm` conforme `AGENTS.md`.
+- Se pediu CRM, use `ArnasDon/wacrm` conforme `AGENTS.md`.
 - Se ainda não descreveu o projeto, deixe a Control Room pronta e faça no máximo a pergunta essencial que falta.
 - Registre projetos e atividades para que apareçam no painel.
 - Nunca registre senhas, tokens ou dados pessoais no histórico.

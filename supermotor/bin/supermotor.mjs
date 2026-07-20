@@ -21,8 +21,8 @@ import { appendActivity, initializeProjectTracking, STATE_ROOT } from "./supermo
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TEMPLATE_ROOT = join(ROOT, "templates");
 const DEFAULT_OUTPUT = join(ROOT, "projetos");
-const FRAPPE_CRM_REPOSITORY = "https://github.com/frappe/crm.git";
-const FRAPPE_CRM_STABLE_REF = "main";
+const WACRM_REPOSITORY = "https://github.com/ArnasDon/wacrm.git";
+const WACRM_STABLE_REF = "main";
 const DEFAULT_BRAND = {
   audience: "Pessoas que valorizam clareza, qualidade e resultado.",
   tone: "ousada, humana e orientada a resultado",
@@ -50,10 +50,10 @@ const TYPES = {
     description: "carrossel para Instagram ou LinkedIn com editor e exportação",
   },
   crm: {
-    aliases: ["crm", "frappe-crm", "vendas", "clientes", "relacionamento", "funil", "pipeline", "sales", "gestao-de-clientes", "gestão-de-clientes"],
-    label: "CRM com Frappe",
+    aliases: ["crm", "wacrm", "vendas", "clientes", "relacionamento", "funil", "pipeline", "sales", "whatsapp-crm", "gestao-de-clientes", "gestão-de-clientes"],
+    label: "CRM com WhatsApp",
     template: "crm",
-    description: "CRM completo para leads, negócios, clientes e operações comerciais baseado no Frappe CRM",
+    description: "CRM completo com WhatsApp integrado — inbox compartilhado, contatos, pipeline Kanban, broadcasts e automações no-code",
     external: true,
   },
 };
@@ -223,44 +223,33 @@ function faviconMimeType(extension) {
   }[extension] || "image/png";
 }
 
-function patchCrmIndex(destination, iconFileName) {
-  const indexPath = join(destination, "frontend", "index.html");
-  if (!existsSync(indexPath)) {
-    throw new Error("A base do Frappe CRM mudou: frontend/index.html não foi encontrado.");
-  }
-
-  let html = readFileSync(indexPath, "utf8");
-  const viewportPattern = /<meta\b(?=[^>]*\bname=["']viewport["'])[^>]*>/i;
-  if (!viewportPattern.test(html)) {
-    throw new Error("A base do Frappe CRM mudou: meta viewport não encontrada.");
-  }
-  html = html.replace(
-    viewportPattern,
-    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />',
-  );
-
-  const iconPattern = /<link\b(?=[^>]*\brel=["']icon["'])[^>]*>/i;
-  const extension = extname(iconFileName).toLowerCase();
-  const iconTag = `<link rel="icon" type="${faviconMimeType(extension)}" href="/assets/crm/${iconFileName}" />`;
-  html = iconPattern.test(html) ? html.replace(iconPattern, iconTag) : html.replace("</head>", `  ${iconTag}\n  </head>`);
-
-  const mobileGuards = `  <style id="supermotor-mobile-guards">
-    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-    body { overflow-x: clip; }
-    a, button, input, select, textarea { touch-action: manipulation; }
-    @media (max-width: 767px) {
-      input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
+function patchWacrmCss(destination) {
+  const guards = `html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow-x: clip; }
+a, button, input, select, textarea { touch-action: manipulation; }
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
+}`;
+  const globalsPath = join(destination, "src", "app", "globals.css");
+  if (existsSync(globalsPath)) {
+    let css = readFileSync(globalsPath, "utf8");
+    if (!css.includes("supermotor-mobile-guards")) {
+      css = `/* supermotor-mobile-guards */\n${guards}\n\n${css}`;
+      writeFileSync(globalsPath, css, "utf8");
     }
-  </style>`;
-  if (!html.includes('id="supermotor-mobile-guards"')) {
-    html = html.replace("</head>", `${mobileGuards}\n  </head>`);
+    return;
   }
-
-  writeFileSync(indexPath, html, "utf8");
+  const publicDir = join(destination, "public");
+  if (existsSync(publicDir)) {
+    const guardPath = join(publicDir, "supermotor-mobile.css");
+    if (!existsSync(guardPath)) {
+      writeFileSync(guardPath, guards, "utf8");
+    }
+  }
 }
 
 function createCrmFavicon(destination, faviconOption, brandName, accent) {
-  const publicDirectory = join(destination, "crm", "public");
+  const publicDirectory = join(destination, "public");
   mkdirSync(publicDirectory, { recursive: true });
   const option = String(faviconOption || "auto").trim().replace(/^['"]|['"]$/g, "");
   let iconFileName;
@@ -285,7 +274,7 @@ function createCrmFavicon(destination, faviconOption, brandName, accent) {
     sourceLabel = "monograma gerado automaticamente";
   }
 
-  patchCrmIndex(destination, iconFileName);
+  patchWacrmCss(destination);
   return sourceLabel;
 }
 
@@ -425,7 +414,7 @@ async function promptForMissing(type, name, brief, options = {}) {
       console.log("1. Site premium");
       console.log("2. Aplicação / dashboard");
       console.log("3. Carrossel social editável\n");
-      console.log("4. CRM completo com Frappe CRM\n");
+      console.log("4. CRM completo com WhatsApp\n");
       const choice = await terminal.question("Escolha o tipo [1-4]: ");
       resolvedType = { "1": "site", "2": "app", "3": "carousel", "4": "crm" }[choice.trim()] ?? normalizeType(choice);
     }
@@ -468,21 +457,21 @@ async function promptForMissing(type, name, brief, options = {}) {
 }
 
 function resolveCrmRepository(value) {
-  const requested = String(value || FRAPPE_CRM_REPOSITORY).trim();
+  const requested = String(value || WACRM_REPOSITORY).trim();
   const localPath = resolve(process.cwd(), requested);
   return existsSync(localPath) ? localPath : requested;
 }
 
 function createCrmProject(destination, answers, slug, parsed) {
   if (!commandExists("git")) {
-    throw new Error("Git é obrigatório para criar um CRM a partir do Frappe CRM.");
+    throw new Error("Git é obrigatório para criar um CRM a partir do wacrm.");
   }
 
   const repository = resolveCrmRepository(parsed.options["crm-repo"] || parsed.options["repositorio-crm"]);
-  const sourceRef = String(parsed.options["crm-ref"] || parsed.options["versao-crm"] || FRAPPE_CRM_STABLE_REF).trim();
+  const sourceRef = String(parsed.options["crm-ref"] || parsed.options["versao-crm"] || WACRM_STABLE_REF).trim();
   const crmTemplate = join(TEMPLATE_ROOT, TYPES.crm.template);
   if (!existsSync(crmTemplate)) {
-    throw new Error("Template de integração do Frappe CRM ausente. Rode o diagnóstico.");
+    throw new Error("Template de integração do wacrm ausente. Rode o diagnóstico.");
   }
 
   ui.title(`Criando ${TYPES.crm.label}`);
@@ -494,12 +483,7 @@ function createCrmProject(destination, answers, slug, parsed) {
     stdio: "inherit",
   });
   if (clone.status !== 0) {
-    throw new Error(`Não foi possível clonar a base do Frappe CRM${clone.error ? `: ${clone.error.message}` : "."}`);
-  }
-
-  const remote = runGit(["-C", destination, "remote", "rename", "origin", "upstream"], { stdio: "pipe" });
-  if (remote.status !== 0) {
-    ui.warn("A base foi clonada, mas não foi possível renomear o remoto oficial para upstream.");
+    throw new Error(`Não foi possível clonar a base do wacrm${clone.error ? `: ${clone.error.message}` : "."}`);
   }
 
   copyTemplate(crmTemplate, destination);
@@ -523,20 +507,25 @@ function createCrmProject(destination, answers, slug, parsed) {
     brand: answers.brandName.trim(),
     source: repository,
     sourceRef,
-    upstream: FRAPPE_CRM_REPOSITORY,
-    license: "AGPL-3.0",
+    upstream: WACRM_REPOSITORY,
+    license: "MIT",
     motorVersion: "3.0.0",
   });
 
-  ui.ok("Frappe CRM estável clonado e contexto SUPERMOTOR aplicado");
+  ui.ok("wacrm clonado e contexto SUPERMOTOR aplicado");
   ui.ok(`Favicon: ${faviconSource}`);
 
   const displayPath = relative(process.cwd(), destination) || destination;
   console.log("\nPronto. Próximos passos:\n");
   console.log(`  cd "${displayPath}"`);
-  console.log("  Leia SUPERMOTOR.md e siga a preparação via Frappe Bench.");
+  console.log("  Leia SUPERMOTOR.md e siga a preparação.");
+  console.log("  1. Crie uma conta grátis em supabase.com");
+  console.log("  2. Configure o projeto Supabase e rode as migrações");
+  console.log("  3. Configure o Meta WhatsApp Business API");
+  console.log("  4. Preencha .env.local com as credenciais");
+  console.log("  5. npm install && npm run dev");
   console.log("\nDepois, peça à IA:");
-  console.log('  "Leia AGENTS.md, SUPERMOTOR.md, .supermotor/CONVERSATION.md e .supermotor/SUPERPROMPT.md. Registre seu andamento, configure o Frappe Bench, execute o CRM e adapte-o ao meu negócio."');
+  console.log('  "Leia AGENTS.md, SUPERMOTOR.md, .supermotor/CONVERSATION.md e .supermotor/SUPERPROMPT.md. Registre seu andamento, configure o Supabase, execute o CRM e adapte-o ao meu negócio."');
   console.log(`\n${color("32", "CRM criado com sucesso:")} ${destination}\n`);
 }
 
@@ -723,8 +712,8 @@ function validateCrmProject(project, parsed) {
     "package.json",
     "AGENTS.md",
     "SUPERMOTOR.md",
-    "frontend/index.html",
-    "crm/hooks.py",
+    "src/app/layout.tsx",
+    "next.config.ts",
     ".supermotor/project.json",
     ".supermotor/PRODUCT.md",
     ".supermotor/CONVERSATION.md",
@@ -738,17 +727,17 @@ function validateCrmProject(project, parsed) {
     pass(existsSync(join(project, file)), file, `Arquivo obrigatório ausente: ${file}`);
   }
 
-  const indexPath = join(project, "frontend", "index.html");
-  const html = existsSync(indexPath) ? readFileSync(indexPath, "utf8") : "";
-  const publicDirectory = join(project, "crm", "public");
+  const publicDirectory = join(project, "public");
   const publicFiles = existsSync(publicDirectory) ? readdirSync(publicDirectory) : [];
-  pass(publicFiles.some((file) => /^supermotor-icon\.(ico|jpe?g|png|svg)$/i.test(file)), "Favicon do CRM configurado", "Favicon do CRM ausente em crm/public");
-  pass(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*[01](?:\D|$)/i.test(html), "Zoom acessível preservado", "Viewport do CRM bloqueia o zoom do usuário");
-  pass(/width\s*=\s*device-width/i.test(html) && /initial-scale\s*=\s*1(?:\.0)?/i.test(html), "Viewport mobile correta", "Viewport mobile correta não encontrada");
-  pass(/overflow-x\s*:\s*(clip|hidden)/i.test(html), "Overflow horizontal protegido", "Proteção contra overflow horizontal ausente");
-  pass(/-webkit-text-size-adjust\s*:\s*100%/i.test(html), "Escala de texto mobile estável", "Escala de texto mobile não protegida");
-  pass(/touch-action\s*:\s*manipulation/i.test(html), "Interações de toque protegidas", "touch-action: manipulation ausente");
-  pass(/font-size\s*:\s*16px\s*!important/i.test(html), "Inputs mobile com tamanho seguro", "Proteção de 16px para inputs mobile ausente");
+  pass(publicFiles.some((file) => /^supermotor-icon\.(ico|jpe?g|png|svg)$/i.test(file)), "Favicon do CRM configurado", "Favicon do CRM ausente em public");
+
+  const globalsPath = join(project, "src", "app", "globals.css");
+  const css = existsSync(globalsPath) ? readFileSync(globalsPath, "utf8") : "";
+  pass(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*[01](?:\D|$)/i.test(css), "Zoom acessível preservado", "Viewport do CRM bloqueia o zoom do usuário");
+  pass(/overflow-x\s*:\s*(clip|hidden)/i.test(css), "Overflow horizontal protegido", "Proteção contra overflow horizontal ausente");
+  pass(/-webkit-text-size-adjust\s*:\s*100%/i.test(css), "Escala de texto mobile estável", "Escala de texto mobile não protegida");
+  pass(/touch-action\s*:\s*manipulation/i.test(css), "Interações de toque protegidas", "touch-action: manipulation ausente");
+  pass(/font-size\s*:\s*16px\s*!important/i.test(css), "Inputs mobile com tamanho seguro", "Proteção de 16px para inputs mobile ausente");
 
   const contextDirectory = join(project, ".supermotor");
   const contextFiles = existsSync(contextDirectory) ? collectFiles(contextDirectory).filter((file) => /\.(json|md)$/i.test(file)) : [];
@@ -766,32 +755,25 @@ function validateCrmProject(project, parsed) {
 
   const skipBuild = Boolean(parsed.options["sem-build"] || parsed.options["static-only"]);
   if (skipBuild) {
-    console.log("\nValidação estática do Frappe CRM aprovada.\n");
+    console.log("\nValidação estática do wacrm aprovada.\n");
     return;
   }
 
-  const frontend = join(project, "frontend");
-  if (!existsSync(join(frontend, "node_modules")) || !commandExists("yarn")) {
-    ui.fail("Ambiente Frappe Bench/Yarn ausente. Prepare o Bench ou use --sem-build.");
+  if (!existsSync(join(project, "node_modules"))) {
+    ui.fail("Dependências ausentes. Rode npm install ou use --sem-build.");
     process.exitCode = 1;
     return;
   }
 
-  ui.info("Executando testes e build do frontend Frappe CRM...");
-  const tests = runYarn(["test:run"], { cwd: frontend, stdio: "inherit" });
-  if (tests.status !== 0) {
-    ui.fail("Testes do Frappe CRM reprovaram");
-    process.exitCode = tests.status || 1;
-    return;
-  }
-  const build = runYarn(["build"], { cwd: frontend, stdio: "inherit" });
+  ui.info("Executando build do wacrm...");
+  const build = runNpm(["run", "build"], { cwd: project, stdio: "inherit" });
   if (build.status !== 0) {
-    ui.fail("Build do Frappe CRM reprovado");
+    ui.fail("Build do wacrm reprovado");
     process.exitCode = build.status || 1;
     return;
   }
 
-  ui.ok("Quality gate técnica do Frappe CRM aprovada");
+  ui.ok("Quality gate técnica do wacrm aprovada");
   console.log("\nCRM aprovado pelo SUPERMOTOR.\n");
 }
 
@@ -825,7 +807,7 @@ function registerExistingProject(parsed) {
       ui.warn("package.json inválido; usando o nome da pasta.");
     }
   }
-  const inferredCrm = existsSync(join(project, "crm", "hooks.py")) && existsSync(join(project, "frontend"));
+  const inferredCrm = existsSync(join(project, "src", "app", "layout.tsx")) && existsSync(join(project, "supabase", "migrations"));
   copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(project, ".supermotor"));
   const metadata = initializeProjectTracking(project, {
     projectType: parsed.options.tipo || parsed.options.type || (inferredCrm ? "crm" : "project"),
@@ -957,9 +939,8 @@ function doctor() {
     }
   }
 
-  if (commandExists("bench")) ui.ok("Frappe Bench disponível para CRM");
-  else if (commandExists("docker")) ui.ok("Docker disponível para CRM");
-  else ui.warn("Para executar CRM localmente, instale Frappe Bench ou Docker");
+  if (commandExists("docker")) ui.ok("Docker disponível para CRM via Supabase local");
+  else ui.warn("Para o CRM, tenha uma conta grátis em supabase.com");
 
   for (const template of ["common", "tracking", ...Object.values(TYPES).map((item) => item.template)]) {
     const path = join(TEMPLATE_ROOT, template);
@@ -1012,7 +993,7 @@ Opções:
   --tom "personalidade"    Define a personalidade da marca
   --cor "#ff5a1f"          Define a cor de destaque
   --favicon caminho        Usa um favicon .ico, .png, .jpg ou .svg
-  --crm-repo caminho/url   Usa um fork ou espelho do Frappe CRM
+  --crm-repo caminho/url   Usa um fork ou espelho do wacrm
   --crm-ref referência     Define branch/tag do CRM (padrão: main estável)
   --rapido                  Usa Brand Kit e favicon automáticos
   --saida caminho          Define a pasta exata de destino

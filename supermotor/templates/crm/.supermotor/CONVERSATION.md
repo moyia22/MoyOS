@@ -18,9 +18,8 @@ __PROJECT_CONSTRAINTS__
 
 ## Regras de comunicação
 
-- Confirme o fluxo comercial e os papéis afetados antes de alterar DocTypes, permissões ou automações.
-- Reaproveite recursos nativos do Frappe CRM antes de criar módulos paralelos.
+- Confirme o fluxo comercial e os papéis afetados antes de alterar pipelines, automações ou permissões.
+- Reaproveite recursos nativos do wacrm antes de criar módulos paralelos.
 - Explique impactos em migrações, dados, integrações e atualizações do upstream.
 - Implemente quando houver contexto suficiente; pergunte apenas quando a resposta mudar materialmente a solução.
 - Registre andamento, testes, bloqueios e conclusão no protocolo `.supermotor/AGENT_PROTOCOL.md`.
-

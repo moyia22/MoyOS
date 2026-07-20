@@ -6,5 +6,5 @@
 - **Cor de destaque:** `__BRAND_ACCENT__`
 - **Favicon:** __FAVICON_SOURCE__
 
-Além do arquivo inicial, confirme a identidade em **Settings > Brand Settings** no próprio CRM. Se a marca mudar, atualize favicon, ícones PWA, nome, logotipo, e-mails e telas públicas.
+Além do arquivo inicial, confirme a identidade nas configurações de marca do CRM. Se a marca mudar, atualize favicon, nome, logotipo, cores e e-mails.
 

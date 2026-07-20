@@ -188,7 +188,7 @@ Se pedirem carrossel, siga a estrutura de slides e as regras de swipe/transiçã
 
 ## CRM
 
-Se pedirem CRM, gestão de leads, funil comercial ou relacionamento com clientes, use `https://github.com/frappe/crm` no ramo `main` como fundação. Preserve Frappe/Vue, o remoto oficial como `upstream` e a licença AGPL-3.0; não gere um CRM genérico em Next.js.
+Se pedirem CRM, gestão de leads, funil comercial ou relacionamento com clientes, use `https://github.com/ArnasDon/wacrm` no ramo `main` como fundação. Preserve Next.js/Supabase, o remoto oficial como `upstream` e a licença MIT; não gere um CRM alternativo em outra stack.
 
 ## Comportamento
 
@@ -211,7 +211,7 @@ Para gráficos, use `libs/graphify`.
 Siga as skills em `skills/`: frontend-design.md, ui-ux-pro-max, awesome-design-md e mazyos-master-context.md.
 
 Para carrosséis: estrutura gancho → conteúdo → exemplo → CTA, mais as regras de swipe do contexto Mazyos.
-Para CRM: use `https://github.com/frappe/crm` no ramo `main`, preserve Frappe/Vue, upstream e AGPL-3.0.
+Para CRM: use `https://github.com/ArnasDon/wacrm` no ramo `main`, preserve Next.js/Supabase, upstream e MIT.
 Confirme o favicon e valide o mobile sem overflow ou autozoom de inputs. Preserve o pinch zoom acessível.
 Em projetos SUPERMOTOR, leia `CONVERSATION.md` e registre o andamento com `node .supermotor/agent.mjs`.
 Sempre prefira os padrões já baixados no projeto em vez de código genérico.

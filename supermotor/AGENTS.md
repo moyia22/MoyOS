@@ -17,8 +17,8 @@ Este repositório é um gerador. Mudanças precisam preservar dois níveis:
 - Projetos gerados devem incluir `.supermotor/agent.mjs`, o protocolo de atividade e contexto conversacional para alimentar o painel.
 - Templates precisam permanecer autocontidos e usar tokens `__PROJECT_*__`, `__BRAND_*__` e `__FAVICON_*__` somente onde o CLI os substitui.
 - Brand Kit e favicon precisam existir em todo projeto gerado.
-- Todo pedido de CRM deve partir de `https://github.com/frappe/crm`, usando `main` como base estável; não gere um CRM genérico em Next.js.
-- Preserve a arquitetura Frappe/Vue, o remoto oficial como `upstream` e a licença AGPL-3.0 nos projetos CRM.
+- Todo pedido de CRM deve partir de `https://github.com/ArnasDon/wacrm`, usando `main` como base estável; não gere um CRM alternativo em outra stack.
+- Preserve a arquitetura Next.js/Supabase, o remoto oficial como `upstream` e a licença MIT nos projetos CRM.
 - Mobile não pode ter overflow horizontal ou inputs abaixo de 16 px; pinch zoom deve permanecer acessível.
 - Não declare um starter pronto sem rodar `npm test`.
 - Alterações de dependências ou código de template exigem pelo menos typecheck, lint e build do tipo afetado.
