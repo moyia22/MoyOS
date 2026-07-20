@@ -26,7 +26,7 @@ export default function Home() {
     <main>
       <header className="site-header">
         <a className="brand" href="#inicio" aria-label="__PROJECT_NAME__ — início">
-          <span className="brand-mark" aria-hidden="true">M</span>
+          <span className="brand-mark" aria-hidden="true">__BRAND_INITIAL__</span>
           <span>__PROJECT_NAME__</span>
         </a>
         <nav aria-label="Navegação principal">
@@ -101,7 +101,7 @@ export default function Home() {
           <div className="panel-header"><span>Design system</span><span>v1.0</span></div>
           <div className="color-row"><span /><span /><span /><span /></div>
           <div className="type-sample"><span>Aa</span><p>Forma e função<br />na mesma direção.</p></div>
-          <div className="panel-footer"><span>__PROJECT_NAME__</span><span>2026</span></div>
+          <div className="panel-footer"><span>__PROJECT_NAME__</span><span>__CREATED_DATE__</span></div>
         </div>
       </section>
 
@@ -112,7 +112,7 @@ export default function Home() {
       </section>
 
       <footer>
-        <div className="brand"><span className="brand-mark">M</span><span>__PROJECT_NAME__</span></div>
+        <div className="brand"><span className="brand-mark">__BRAND_INITIAL__</span><span>__PROJECT_NAME__</span></div>
         <p>Feito com direção, cuidado e SUPERMOTOR.</p>
         <a href="#inicio">Voltar ao topo ↑</a>
       </footer>

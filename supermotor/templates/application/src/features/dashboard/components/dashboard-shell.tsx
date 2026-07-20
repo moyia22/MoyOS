@@ -38,7 +38,7 @@ const bars = [46, 58, 53, 71, 64, 82, 76, 91, 85, 98, 88, 104];
 
 const initialTasks = [
   { id: 1, title: "Revisar proposta comercial", meta: "Projeto Atlas · hoje", done: false },
-  { id: 2, title: "Aprovar nova identidade visual", meta: "Mazyos Labs · amanhã", done: false },
+  { id: 2, title: "Aprovar nova identidade visual", meta: "__BRAND_NAME__ Labs · amanhã", done: false },
   { id: 3, title: "Enviar relatório de performance", meta: "Conta Aurora · sexta", done: true },
 ];
 
@@ -56,13 +56,13 @@ export function DashboardShell() {
     <div className="app-shell">
       <aside className={menuOpen ? "sidebar open" : "sidebar"}>
         <div className="sidebar-top">
-          <a className="app-brand" href="#top"><span>M</span><strong>__PROJECT_NAME__</strong></a>
+          <a className="app-brand" href="#top"><span>__BRAND_INITIAL__</span><strong>__PROJECT_NAME__</strong></a>
           <button className="icon-button mobile-close" onClick={() => setMenuOpen(false)} aria-label="Fechar menu"><X size={19} /></button>
         </div>
 
         <div className="workspace-switcher">
-          <span className="workspace-avatar">MA</span>
-          <div><small>Workspace</small><strong>Mazyos</strong></div>
+          <span className="workspace-avatar">__BRAND_INITIAL__</span>
+          <div><small>Workspace</small><strong>__BRAND_NAME__</strong></div>
           <ChevronDown size={16} />
         </div>
 

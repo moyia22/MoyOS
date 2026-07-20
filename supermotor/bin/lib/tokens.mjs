@@ -40,6 +40,17 @@ function collectFiles(directory) {
   });
 }
 
+function brandInitials(brandName) {
+  return brandName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase() || "M";
+}
+
 function projectTokens(type, answers, slug, extra = {}) {
   return {
     PROJECT_NAME: answers.name.trim(),
@@ -50,7 +61,9 @@ function projectTokens(type, answers, slug, extra = {}) {
     PROJECT_SUCCESS: answers.success.trim(),
     PROJECT_ESSENTIALS: answers.essentials.trim(),
     PROJECT_CONSTRAINTS: answers.constraints.trim(),
+    PROJECT_LANG: answers.lang || "pt-BR",
     BRAND_NAME: answers.brandName.trim(),
+    BRAND_INITIAL: brandInitials(answers.brandName || answers.name),
     BRAND_AUDIENCE: answers.audience.trim(),
     BRAND_TONE: answers.tone.trim(),
     BRAND_ACCENT: answers.accent,

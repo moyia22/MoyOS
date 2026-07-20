@@ -60,7 +60,7 @@ export function CarouselStudio() {
   return (
     <main className="studio-shell">
       <header className="studio-header">
-        <div className="studio-brand"><span>M</span><div><strong>Carousel Studio</strong><small>__PROJECT_NAME__</small></div></div>
+        <div className="studio-brand"><span>__BRAND_INITIAL__</span><div><strong>Carousel Studio</strong><small>__PROJECT_NAME__</small></div></div>
         <div className="header-status"><Sparkles size={15} /><span>1080 × 1350 px</span></div>
         <button className="export-button" onClick={exportSlide} disabled={exporting}><Download size={17} /> {exporting ? "Exportando..." : "Exportar PNG"}</button>
       </header>
@@ -83,7 +83,7 @@ export function CarouselStudio() {
               <div className="canvas-grid" />
               <div className="shape shape-one" />
               <div className="shape shape-two" />
-              <header><span className="canvas-brand">Mazyos®</span><span className="canvas-count">{String(activeIndex + 1).padStart(2, "0")}</span></header>
+              <header><span className="canvas-brand">__BRAND_NAME__</span><span className="canvas-count">{String(activeIndex + 1).padStart(2, "0")}</span></header>
               <div className="slide-content"><p>{activeSlide.eyebrow}</p><h2>{activeSlide.title}</h2><div className="divider" /><span>{activeSlide.body}</span></div>
               <footer><span>{activeSlide.footer}</span><span className="footer-mark"><ArrowRight size={17} /></span></footer>
             </div>
