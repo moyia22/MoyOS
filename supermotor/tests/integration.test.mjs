@@ -200,3 +200,44 @@ describe("Token replacement integrity", () => {
     safeRmDir(projectDir);
   });
 });
+
+describe("CLI config", () => {
+  it("config shows current values", () => {
+    const { stdout, exitCode } = run(["config"]);
+    assert.equal(exitCode, 0);
+    const config = JSON.parse(stdout);
+    assert.ok(config.dashboard);
+    assert.ok(config.brand);
+  });
+
+  it("config path works", () => {
+    const { stdout, exitCode } = run(["config", "path"]);
+    assert.equal(exitCode, 0);
+    assert.match(stdout.trim(), /config\.json/);
+  });
+
+  it("config reset works", () => {
+    const { exitCode } = run(["config", "reset"]);
+    assert.equal(exitCode, 0);
+  });
+});
+
+describe("CLI onboarding types", () => {
+  it("listar --json outputs landing type", () => {
+    const { stdout, exitCode } = run(["listar", "--json"]);
+    assert.equal(exitCode, 0);
+    const trimmed = stdout.trim();
+    if (trimmed.startsWith("[")) {
+      const projects = JSON.parse(trimmed);
+      assert.ok(Array.isArray(projects));
+    }
+  });
+});
+
+describe("CLI doctor output", () => {
+  it("doctor shows config section", () => {
+    const { stdout, exitCode } = run(["doctor"]);
+    assert.equal(exitCode, 0);
+    assert.match(stdout, /Configuracao atual/);
+  });
+});

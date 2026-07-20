@@ -28,6 +28,11 @@ const FILE_WATCHERS = new Map();
 const SSE_CLIENTS = new Set();
 const FILE_CHANGE_BUFFER = new Map();
 const FLUSH_INTERVAL_MS = 800;
+const REBUILD_DEBOUNCE_MS = 3000;
+const REBUILD_TIMERS = new Map();
+const REBUILD_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css", ".json"]);
+const REBUILD_COMMAND = process.platform === "win32" ? "npm.cmd" : "npm";
+const REBUILD_ARGS = ["run", "check"];
 
 function safeTextFile(path, maxLength = 5000) {
   if (!existsSync(path)) return "";
@@ -36,6 +41,22 @@ function safeTextFile(path, maxLength = 5000) {
   } catch {
     return "";
   }
+}
+
+const TEMPLATE_CACHE = new Map();
+const TEMPLATE_CACHE_MAX = 50;
+const TEMPLATE_CACHE_TTL = 30000;
+
+function cachedReadFile(path, maxLength = 5000) {
+  const cached = TEMPLATE_CACHE.get(path);
+  if (cached && Date.now() - cached.ts < TEMPLATE_CACHE_TTL) return cached.data;
+  const data = safeTextFile(path, maxLength);
+  if (TEMPLATE_CACHE.size >= TEMPLATE_CACHE_MAX) {
+    const oldest = TEMPLATE_CACHE.keys().next().value;
+    TEMPLATE_CACHE.delete(oldest);
+  }
+  TEMPLATE_CACHE.set(path, { ts: Date.now(), data });
+  return data;
 }
 
 function recentFiles(projectPath) {
@@ -85,6 +106,17 @@ function broadcastSSE(event, data) {
   }
 }
 
+function triggerRebuild(projectPath, projectId) {
+  if (REBUILD_TIMERS.has(projectId)) clearTimeout(REBUILD_TIMERS.get(projectId));
+  REBUILD_TIMERS.set(projectId, setTimeout(() => {
+    REBUILD_TIMERS.delete(projectId);
+    if (!existsSync(join(projectPath, "node_modules"))) return;
+    const child = spawn(REBUILD_COMMAND, REBUILD_ARGS, { cwd: projectPath, stdio: "ignore", detached: true, windowsHide: true });
+    child.unref();
+    broadcastSSE("rebuild", { projectId, startedAt: new Date().toISOString() });
+  }, REBUILD_DEBOUNCE_MS));
+}
+
 function startFileWatcher(projectPath, projectId) {
   if (FILE_WATCHERS.has(projectPath)) return;
   let watcher;
@@ -107,6 +139,8 @@ function startFileWatcher(projectPath, projectId) {
           FILE_CHANGE_BUFFER.delete(projectId);
         }, FLUSH_INTERVAL_MS);
       }
+      const ext = "." + (filename.split(".").pop() || "");
+      if (REBUILD_EXTENSIONS.has(ext)) triggerRebuild(projectPath, projectId);
     });
     FILE_WATCHERS.set(projectPath, watcher);
   } catch {
@@ -123,12 +157,16 @@ function stopAllFileWatchers() {
     if (buffer.timer) clearTimeout(buffer.timer);
   }
   FILE_CHANGE_BUFFER.clear();
+  for (const timer of REBUILD_TIMERS.values()) {
+    clearTimeout(timer);
+  }
+  REBUILD_TIMERS.clear();
 }
 
 function conversationFor(projectPath, type) {
   const crmPath = join(projectPath, ".supermotor", "CONVERSATION.md");
   const standardPath = join(projectPath, "CONVERSATION.md");
-  return safeTextFile(type === "crm" ? crmPath : existsSync(standardPath) ? standardPath : crmPath, 5000);
+  return cachedReadFile(type === "crm" ? crmPath : existsSync(standardPath) ? standardPath : crmPath, 5000);
 }
 
 function suggestedPrompt(project, metadata, agents, activities, conversation) {

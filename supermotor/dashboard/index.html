@@ -33,6 +33,14 @@
         <div class="search-wrapper">
           <input class="project-search" id="project-search" type="search" placeholder="Filtrar projetos… (Ctrl+K)" aria-label="Filtrar projetos" />
         </div>
+        <div class="type-filter-row">
+          <button class="type-pill active" data-type="all" type="button">Todos</button>
+          <button class="type-pill" data-type="site" type="button">Site</button>
+          <button class="type-pill" data-type="landing" type="button">Landing</button>
+          <button class="type-pill" data-type="app" type="button">App</button>
+          <button class="type-pill" data-type="carousel" type="button">Carrossel</button>
+          <button class="type-pill" data-type="crm" type="button">CRM</button>
+        </div>
         <nav class="project-list" id="project-list" aria-label="Lista de projetos"></nav>
 
         <div class="sidebar-help">
@@ -75,6 +83,12 @@
             </button>
             <button class="action-chip" id="action-copy-path" type="button" title="Copiar caminho do projeto">
               <span aria-hidden="true">🔗</span> Copiar caminho
+            </button>
+            <button class="action-chip" id="action-export-csv" type="button" title="Exportar dados do projeto como CSV">
+              <span aria-hidden="true">📊</span> Exportar CSV
+            </button>
+            <button class="action-chip" id="action-compare" type="button" title="Comparar com outro projeto">
+              <span aria-hidden="true">⚖️</span> Comparar
             </button>
           </div>
           <section class="metrics-grid" aria-label="Resumo do projeto">
@@ -211,6 +225,16 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <div class="compare-modal" id="compare-modal" hidden>
+      <div class="compare-backdrop" id="compare-backdrop"></div>
+      <div class="compare-panel">
+        <div class="compare-header">
+          <h3>Comparar projetos</h3>
+          <button class="text-button" id="compare-close" type="button">Fechar</button>
+        </div>
+        <div class="compare-body" id="compare-body"></div>
+      </div>
+    </div>
     <script src="/app.js" type="module"></script>
   </body>
 </html>

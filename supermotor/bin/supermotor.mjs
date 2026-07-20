@@ -19,7 +19,9 @@ import { statusCommand } from "./lib/commands.mjs";
 import { startDashboardDaemon } from "./lib/commands.mjs";
 import { stopDashboardDaemon } from "./lib/commands.mjs";
 import { dashboardDaemonStatus } from "./lib/commands.mjs";
-import { loadConfig, updateConfig, resetConfig, getConfigPath } from "./lib/config.mjs";
+import { loadConfig, updateConfig, resetConfig, getConfigPath, get, set, getAll } from "./lib/config.mjs";
+import { setLanguage, t } from "./lib/i18n.mjs";
+import { loadPlugins, getAllTypes, listPlugins } from "./lib/plugins.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 let VERSION = "3.0.0";
@@ -58,6 +60,7 @@ ${color("1", "Comandos:")}
   status        Mostra resumo do status de um projeto
   doctor        Diagnostico do ambiente e dependencias
   config        Gerencia configuracoes do SUPERMOTOR
+  plugins       Lista plugins e tipos customizados instalados
 
 ${color("1", "Opcoes globais:")}
   --version               Mostra a versao do SUPERMOTOR
@@ -99,6 +102,10 @@ ${color("1", "Exemplos:")}
 async function main() {
   const parsed = parseArgs(process.argv.slice(2));
   const command = parsed.positionals[0]?.toLowerCase();
+
+  const cfg = loadConfig();
+  if (cfg.language) setLanguage(cfg.language);
+  loadPlugins();
 
   if (parsed.options.help || ["help", "ajuda", "--help", "-h"].includes(command)) {
     help();
@@ -145,8 +152,8 @@ async function main() {
     const { startDashboard } = await import("./dashboard-server.mjs");
     const cfg = loadConfig();
     await startDashboard({
-      port: Number(parsed.options.porta || parsed.options.port || cfg.port),
-      open: !Boolean(parsed.options["nao-abrir"] || parsed.options["não-abrir"] || parsed.options["no-open"]),
+      port: Number(parsed.options.porta || parsed.options.port || cfg.dashboard?.port || 4545),
+      open: parsed.options["nao-abrir"] || parsed.options["não-abrir"] || parsed.options["no-open"] ? false : (cfg.dashboard?.openBrowser !== false),
     });
     return;
   }
@@ -204,23 +211,46 @@ async function main() {
     }
     const key = parsed.positionals[2];
     const value = parsed.positionals[3];
-    if (key && value !== undefined) {
-      const patch = {};
-      const keys = key.split(".");
-      let obj = patch;
-      for (let i = 0; i < keys.length - 1; i++) { obj[keys[i]] = {}; obj = obj[keys[i]]; }
-      obj[keys[keys.length - 1]] = value === "true" ? true : value === "false" ? false : isNaN(value) ? value : Number(value);
-      updateConfig(patch);
-      ui.ok(`${key} atualizado para ${value}`);
-    } else {
-      const config = loadConfig();
-      console.log(JSON.stringify(config, null, 2));
+    if (action === "get" && key) {
+      const val = get(key);
+      console.log(val !== undefined ? JSON.stringify(val, null, 2) : `Chave '${key}' nao encontrada.`);
+      return;
     }
+    if (action === "set" && key && value !== undefined) {
+      set(key, value);
+      ui.ok(`${key} atualizado para ${value}`);
+      return;
+    }
+    if (key && value !== undefined) {
+      set(key, value);
+      ui.ok(`${key} atualizado para ${value}`);
+      return;
+    }
+    const config = getAll();
+    console.log(JSON.stringify(config, null, 2));
     return;
   }
 
   if (["create", "criar", "novo", "new"].includes(command)) {
     await createProject(parsed);
+    return;
+  }
+
+  if (["plugins", "plugin", "extensoes", "extensions"].includes(command)) {
+    const plugins = listPlugins();
+    ui.title("SUPERMOTOR — plugins");
+    if (!plugins.length) {
+      console.log("  Nenhum plugin instalado.\n");
+      console.log("  Crie uma pasta em plugins/ com um plugin.json para adicionar tipos customizados.\n");
+      return;
+    }
+    for (const p of plugins) {
+      console.log(`  ${color("1;37", p.name)} ${color("2", `v${p.version}`)}`);
+      console.log(`    Tipo: ${color("33", p.type)}`);
+      if (p.description) console.log(`    ${color("2", p.description)}`);
+      if (p.author) console.log(`    Autor: ${color("2", p.author)}`);
+      console.log();
+    }
     return;
   }
 

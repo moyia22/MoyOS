@@ -7,6 +7,7 @@ import { color, ui } from "./ui.mjs";
 import { ROOT, TEMPLATE_ROOT, TYPES } from "./constants.mjs";
 import { copyTemplate } from "./templates.mjs";
 import { commandExists } from "./templates.mjs";
+import { loadConfig, getAll } from "./config.mjs";
 import {
   appendActivity,
   initializeProjectTracking,
@@ -118,7 +119,8 @@ async function startDashboardDaemon(parsed) {
   }
   if (existsSync(controlPath)) unlinkSync(controlPath);
   mkdirSync(STATE_ROOT, { recursive: true });
-  const port = Number(parsed.options.porta || parsed.options.port || 4545);
+  const cfg = loadConfig();
+  const port = Number(parsed.options.porta || parsed.options.port || cfg.dashboard?.port || 4545);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Porta invalida para o painel. Use um valor entre 1 e 65535.");
   const args = [join(ROOT, "bin", "dashboard-server.mjs"), "--porta", String(port)];
   if (!shouldOpen) args.push("--nao-abrir");
@@ -206,6 +208,16 @@ function doctor() {
     if (existsSync(join(ROOT, item))) ui.ok(item);
     else ui.warn(`${item} ainda n\u00e3o instalado; rode setup.ps1 ou setup.sh`);
   }
+
+  const config = getAll();
+  console.log();
+  ui.info("Configuracao atual:");
+  console.log(`  Porta do painel:    ${config.dashboard?.port || 4545}`);
+  console.log(`  Abrir navegador:    ${config.dashboard?.openBrowser !== false ? "Sim" : "Nao"}`);
+  console.log(`  Cor de destaque:    ${config.brand?.accent || "#ff5a1f"}`);
+  console.log(`  Tom de voz:         ${config.brand?.tone || "profissional e acessivel"}`);
+  console.log(`  Diretorio saida:    ${config.project?.outputDir || "(current directory)"}`);
+  console.log(`  Idioma:             ${config.language || "pt-br"}`);
 
   console.log(healthy ? "\nMotor pronto para criar projetos.\n" : "\nCorrija os itens acima antes de criar projetos.\n");
   process.exitCode = healthy ? 0 : 1;

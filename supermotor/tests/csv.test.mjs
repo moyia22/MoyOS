@@ -64,4 +64,27 @@ describe("scoreMatch", () => {
   it("handles special regex characters in keywords", () => {
     assert.equal(scoreMatch("c++ developer", "c++"), 1);
   });
+
+  it("handles BOM in input", () => {
+    assert.deepEqual(parseCSVLine("\uFEFFname,age"), ["name", "age"]);
+  });
+
+  it("handles unicode characters", () => {
+    assert.deepEqual(parseCSVLine("nome,idade, profissão"), ["nome", "idade", "profissão"]);
+  });
+
+  it("handles very long fields", () => {
+    const long = "a".repeat(10000);
+    const result = parseCSVLine(`${long},b`);
+    assert.equal(result[0].length, 10000);
+    assert.equal(result[1], "b");
+  });
+
+  it("handles newlines in quoted fields", () => {
+    assert.deepEqual(parseCSVLine('"line1\nline2",b'), ["line1\nline2", "b"]);
+  });
+
+  it("handles multiple escaped quotes", () => {
+    assert.deepEqual(parseCSVLine('"a""b""c"'), ['a"b"c']);
+  });
 });

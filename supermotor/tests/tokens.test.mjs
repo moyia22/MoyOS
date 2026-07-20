@@ -148,4 +148,65 @@ describe("projectTokens", () => {
     }, "test", { CUSTOM: "value" });
     assert.equal(tokens.CUSTOM, "value");
   });
+
+  it("handles emoji in brand name", () => {
+    const tokens = projectTokens("site", {
+      name: "Test",
+      brief: "b",
+      success: "s",
+      essentials: "e",
+      constraints: "c",
+      brandName: "🚀 Rocket Labs",
+      audience: "a",
+      tone: "t",
+      accent: "#000000",
+    }, "test");
+    assert.equal(tokens.BRAND_NAME, "🚀 Rocket Labs");
+    assert.ok(tokens.BRAND_INITIAL);
+  });
+
+  it("handles emoji in project name", () => {
+    const tokens = projectTokens("app", {
+      name: "🍕 Pizza App",
+      brief: "b",
+      success: "s",
+      essentials: "e",
+      constraints: "c",
+      brandName: "Brand",
+      audience: "a",
+      tone: "t",
+      accent: "#000000",
+    }, "pizza-app");
+    assert.equal(tokens.PROJECT_NAME, "🍕 Pizza App");
+  });
+
+  it("handles empty accent color", () => {
+    const tokens = projectTokens("site", {
+      name: "Test",
+      brief: "b",
+      success: "s",
+      essentials: "e",
+      constraints: "c",
+      brandName: "Brand",
+      audience: "a",
+      tone: "t",
+      accent: "",
+    }, "test");
+    assert.equal(typeof tokens.BRAND_ACCENT, "string");
+  });
+
+  it("handles special characters in slug", () => {
+    const tokens = projectTokens("site", {
+      name: "Test",
+      brief: "b",
+      success: "s",
+      essentials: "e",
+      constraints: "c",
+      brandName: "Brand",
+      audience: "a",
+      tone: "t",
+      accent: "#000000",
+    }, "my-project_v2.0");
+    assert.equal(tokens.PROJECT_SLUG, "my-project_v2.0");
+  });
 });

@@ -8,6 +8,8 @@ const state = {
   toastTimer: null,
   searchQuery: "",
   activityFilter: "all",
+  typeFilter: "all",
+  lazyRendered: { activities: false, files: false, agents: false },
 };
 
 function saveCache(data) {
@@ -30,7 +32,8 @@ const elements = Object.fromEntries([
   "metric-progress", "project-progress", "metric-agents", "metric-agents-note", "metric-files", "metric-files-size", "metric-updated", "metric-sync", "agents-grid",
   "activity-list", "brief-objective", "brief-success", "brief-essentials", "brief-constraints", "file-list", "project-prompt",
   "activity-form", "activity-agent", "activity-status", "activity-action", "activity-detail", "form-message", "toast",
-  "action-copy-prompt", "action-open-code", "action-open-folder", "action-copy-path",
+  "action-copy-prompt", "action-open-code", "action-open-folder", "action-copy-path", "action-export-csv", "action-compare",
+  "compare-modal", "compare-backdrop", "compare-close", "compare-body",
 ].map((id) => [id, document.getElementById(id)]));
 
 const STATUS_LABELS = {
@@ -53,7 +56,7 @@ const STATUS_EMOJIS = {
   idle: "⏸️",
 };
 
-const TYPE_LABELS = { site: "SITE", app: "APLICAÇÃO", carousel: "CARROSSEL", crm: "WACRM", project: "PROJETO" };
+const TYPE_LABELS = { site: "SITE", landing: "LANDING", app: "APLICAÇÃO", carousel: "CARROSSEL", crm: "WACRM", project: "PROJETO" };
 
 function selectedProject() {
   const projects = state.dashboard?.projects || [];
@@ -172,9 +175,11 @@ function updateConnection(connected) {
 function renderProjects(projects) {
   clear(elements["project-list"]);
   const query = state.searchQuery.toLowerCase();
-  const filtered = query ? projects.filter((p) => p.name.toLowerCase().includes(query) || p.type.toLowerCase().includes(query)) : projects;
+  let filtered = projects;
+  if (query) filtered = filtered.filter((p) => p.name.toLowerCase().includes(query) || p.type.toLowerCase().includes(query));
+  if (state.typeFilter !== "all") filtered = filtered.filter((p) => p.type === state.typeFilter);
   elements["project-count"].textContent = String(filtered.length);
-  if (filtered.length === 0 && query) {
+  if (filtered.length === 0 && (query || state.typeFilter !== "all")) {
     elements["project-list"].append(node("div", "search-empty", "Nenhum projeto encontrado"));
     return;
   }
@@ -318,8 +323,16 @@ function renderProject(project) {
   elements["project-prompt"].value = project.suggestedPrompt;
   elements["copy-prompt-button"].disabled = false;
   renderAgents(project);
-  renderActivities(project);
-  renderFiles(project);
+  if (!state.lazyRendered.activities || project.activities.length !== state.lastActivityCount) {
+    renderActivities(project);
+    state.lazyRendered.activities = true;
+    state.lastActivityCount = project.activities.length;
+  }
+  if (!state.lazyRendered.files || project.recentFiles.length !== state.lastFileCount) {
+    renderFiles(project);
+    state.lazyRendered.files = true;
+    state.lastFileCount = project.recentFiles.length;
+  }
 }
 
 function render() {
@@ -377,6 +390,93 @@ function openInExplorer() {
   showToast("Abrindo pasta no explorador...");
 }
 
+function exportProjectCSV() {
+  const project = selectedProject();
+  if (!project) return;
+  const rows = [
+    ["Campo", "Valor"],
+    ["Nome", project.name],
+    ["Tipo", project.type],
+    ["Caminho", project.path],
+    ["Objetivo", project.objective || ""],
+    ["Sucesso", project.success || ""],
+    ["Essenciais", project.essentials || ""],
+    ["Restricoes", project.constraints || ""],
+    ["Marca", project.brand || ""],
+    ["Progresso", `${project.progress}%`],
+    ["Agentes ativos", String(project.activeAgentCount)],
+    ["Bloqueados", String(project.blockedAgentCount)],
+    ["Arquivos recentes", String(project.recentFiles.length)],
+    ["Criado em", project.createdAt || ""],
+    ["Ultimo update", project.updatedAt || ""],
+  ];
+  for (const agent of project.agents) {
+    rows.push(["", ""]);
+    rows.push([`Agente: ${agent.name}`, agent.status]);
+    rows.push(["  Acao", agent.action || ""]);
+    rows.push(["  Detalhe", agent.detail || ""]);
+  }
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `supermotor-${project.name.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("CSV exportado com sucesso.");
+}
+
+function showCompareModal() {
+  const projects = state.dashboard?.projects || [];
+  if (projects.length < 2) {
+    showToast("Registre pelo menos 2 projetos para comparar.");
+    return;
+  }
+  const modal = elements["compare-modal"];
+  const body = elements["compare-body"];
+  clear(body);
+  modal.hidden = false;
+
+  const current = selectedProject();
+  const others = projects.filter((p) => p.id !== current?.id);
+  if (!current || !others.length) {
+    modal.hidden = true;
+    showToast("Selecione um projeto para comparar.");
+    return;
+  }
+
+  const table = node("table", "compare-table");
+  const thead = node("thead", "");
+  thead.innerHTML = `<tr><th>Métrica</th><th>${current.name}</th><th>${others[0].name}</th></tr>`;
+  table.append(thead);
+
+  const tbody = node("tbody", "");
+  const metrics = [
+    ["Tipo", (p) => TYPE_LABELS[p.type] || p.type],
+    ["Saúde", (p) => `${calculateHealth(p).score}%`],
+    ["Progresso", (p) => `${p.progress}%`],
+    ["Agentes ativos", (p) => String(p.activeAgentCount)],
+    ["Bloqueados", (p) => String(p.blockedAgentCount)],
+    ["Atividades", (p) => String(p.activities.length)],
+    ["Arquivos", (p) => String(p.recentFiles.length)],
+    ["Criado", (p) => relativeTime(p.createdAt)],
+    ["Ultimo update", (p) => relativeTime(p.updatedAt)],
+  ];
+  for (const [label, fn] of metrics) {
+    const tr = node("tr", "");
+    tr.innerHTML = `<td>${label}</td><td>${fn(current)}</td><td>${fn(others[0])}</td>`;
+    tbody.append(tr);
+  }
+  table.append(tbody);
+  body.append(table);
+
+  if (others.length > 1) {
+    const hint = node("p", "compare-hint", `Mostrando comparação com "${others[0].name}". ${others.length - 1} outro(s) projeto(s) disponível(is).`);
+    body.append(hint);
+  }
+}
+
 async function fetchState() {
   const response = await fetch("/api/state", { cache: "no-store" });
   if (!response.ok) throw new Error("Não foi possível carregar o painel");
@@ -420,6 +520,15 @@ document.querySelectorAll(".filter-pill").forEach((pill) => {
   });
 });
 
+document.querySelectorAll(".type-pill").forEach((pill) => {
+  pill.addEventListener("click", () => {
+    document.querySelectorAll(".type-pill").forEach((p) => p.classList.remove("active"));
+    pill.classList.add("active");
+    state.typeFilter = pill.dataset.type;
+    renderProjects(state.dashboard?.projects || []);
+  });
+});
+
 elements["refresh-button"].addEventListener("click", () => fetchState().then(() => showToast("Painel atualizado.")).catch((error) => showToast(error.message)));
 elements["copy-prompt-button"].addEventListener("click", copyPrompt);
 elements["copy-prompt-inline"].addEventListener("click", copyPrompt);
@@ -427,6 +536,10 @@ elements["action-copy-prompt"].addEventListener("click", copyPrompt);
 elements["action-open-code"].addEventListener("click", openInEditor);
 elements["action-open-folder"].addEventListener("click", openInExplorer);
 elements["action-copy-path"].addEventListener("click", copyProjectPath);
+elements["action-export-csv"].addEventListener("click", exportProjectCSV);
+elements["action-compare"].addEventListener("click", showCompareModal);
+elements["compare-close"]?.addEventListener("click", () => { elements["compare-modal"].hidden = true; });
+elements["compare-backdrop"]?.addEventListener("click", () => { elements["compare-modal"].hidden = true; });
 
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key === "k") {
