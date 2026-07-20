@@ -1,0 +1,398 @@
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { createInterface } from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
+import { dirname, extname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { color, ui } from "./ui.mjs";
+import { ROOT, TEMPLATE_ROOT, DEFAULT_OUTPUT, TYPES, DEFAULT_BRAND, WACRM_REPOSITORY, WACRM_STABLE_REF } from "./constants.mjs";
+import { normalizeType, slugify } from "./constants.mjs";
+import { normalizeHexColor, validateFaviconInput, createFavicon, createCrmFavicon } from "./brand.mjs";
+import { replaceTokens, replaceTokensInFile, projectTokens, collectFiles } from "./tokens.mjs";
+import { copyTemplate, npmInstall, commandExists, runGit } from "./templates.mjs";
+import { initializeProjectTracking } from "../supermotor-state.mjs";
+
+async function promptForMissing(type, name, brief, options = {}) {
+  if (!input.isTTY) {
+    let piped = "";
+    for await (const chunk of input) piped += chunk;
+    const answers = piped.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+    const choice = type ? undefined : answers.shift();
+    const resolvedType = type || { "1": "site", "2": "app", "3": "carousel", "4": "crm" }[choice] || normalizeType(choice);
+    const resolvedName = name || answers.shift() || "";
+    const resolvedBrief = brief || answers.shift() || "Criar uma experi\u00eancia digital memor\u00e1vel, clara e orientada a resultado.";
+    const success = options.sucesso || answers.shift() || "O fluxo principal funciona de ponta a ponta, com clareza, qualidade e valida\u00e7\u00e3o real.";
+    const essentials = options.essenciais || answers.shift() || "Experi\u00eancia principal completa, estados de erro e vazio, responsividade e acessibilidade.";
+    const constraints = options.restricoes || options["restri\u00e7\u00f5es"] || answers.shift() || "Preservar seguran\u00e7a, desempenho, identidade da marca e compatibilidade mobile.";
+    const brandName = options.marca || answers.shift() || resolvedName;
+    const audience = options.publico || options["p\u00fablico"] || answers.shift() || DEFAULT_BRAND.audience;
+    const tone = options.tom || answers.shift() || DEFAULT_BRAND.tone;
+    const accent = normalizeHexColor(options.cor || answers.shift() || DEFAULT_BRAND.accent);
+    const favicon = options.favicon || answers.shift() || "auto";
+    return { type: resolvedType, name: resolvedName, brief: resolvedBrief, success, essentials, constraints, brandName, audience, tone, accent, favicon };
+  }
+
+  const terminal = createInterface({ input, output });
+  ui.title("SUPERMOTOR \u2014 novo projeto");
+
+  try {
+    let resolvedType = type;
+    if (!resolvedType) {
+      console.log("1. Site premium");
+      console.log("2. Aplica\u00e7\u00e3o / dashboard");
+      console.log("3. Carrossel social edit\u00e1vel\n");
+      console.log("4. CRM completo com WhatsApp\n");
+      const choice = await terminal.question("Escolha o tipo [1-4]: ");
+      resolvedType = { "1": "site", "2": "app", "3": "carousel", "4": "crm" }[choice.trim()] ?? normalizeType(choice);
+    }
+
+    const resolvedName = name || (await terminal.question("Nome do projeto: ")).trim();
+    const resolvedBrief =
+      brief ||
+      (await terminal.question("Objetivo em uma frase (opcional): ")).trim() ||
+      "Criar uma experi\u00eancia digital memor\u00e1vel, clara e orientada a resultado.";
+    let success = options.sucesso || "O fluxo principal funciona de ponta a ponta, com clareza, qualidade e valida\u00e7\u00e3o real.";
+    let essentials = options.essenciais || "Experi\u00eancia principal completa, estados de erro e vazio, responsividade e acessibilidade.";
+    let constraints = options.restricoes || options["restri\u00e7\u00f5es"] || "Preservar seguran\u00e7a, desempenho, identidade da marca e compatibilidade mobile.";
+    let brandName = options.marca || resolvedName;
+    let audience = options.publico || options["p\u00fablico"] || DEFAULT_BRAND.audience;
+    let tone = options.tom || DEFAULT_BRAND.tone;
+    let accent = options.cor || DEFAULT_BRAND.accent;
+
+    if (!options.rapido && !options["modo-r\u00e1pido"]) {
+      success = options.sucesso || (await terminal.question("Como saberemos que o projeto deu certo? (opcional): ")).trim() || success;
+      essentials = options.essenciais || (await terminal.question("O que precisa funcionar na primeira vers\u00e3o? (opcional): ")).trim() || essentials;
+      constraints = options.restricoes || options["restri\u00e7\u00f5es"] || (await terminal.question("H\u00e1 integra\u00e7\u00f5es, limites ou algo proibido? (opcional): ")).trim() || constraints;
+      const customize = (await terminal.question("Personalizar a marca agora? [S/n]: ")).trim().toLowerCase();
+      if (!["n", "nao", "n\u00e3o"].includes(customize)) {
+        brandName = options.marca || (await terminal.question(`Nome da marca [${resolvedName}]: `)).trim() || resolvedName;
+        audience = options.publico || options["p\u00fablico"] || (await terminal.question("P\u00fablico principal (opcional): ")).trim() || DEFAULT_BRAND.audience;
+        tone = options.tom || (await terminal.question("Personalidade da marca (opcional): ")).trim() || DEFAULT_BRAND.tone;
+        accent = options.cor || (await terminal.question(`Cor de destaque [${DEFAULT_BRAND.accent}]: `)).trim() || DEFAULT_BRAND.accent;
+      }
+    }
+
+    const favicon =
+      options.favicon ||
+      (options.rapido ? "auto" : (await terminal.question("Favicon: caminho para .ico/.png/.jpg/.svg ou Enter para gerar automaticamente: ")).trim()) ||
+      "auto";
+
+    return { type: resolvedType, name: resolvedName, brief: resolvedBrief, success, essentials, constraints, brandName, audience, tone, accent: normalizeHexColor(accent), favicon };
+  } finally {
+    terminal.close();
+  }
+}
+
+async function createProject(parsed) {
+  const rawType = parsed.positionals[1];
+  const rawName = parsed.positionals.slice(2).join(" ");
+  const initialType = normalizeType(rawType);
+  const briefOption = parsed.options.brief || parsed.options.objetivo || "";
+  const answers = await promptForMissing(initialType, rawName, briefOption, parsed.options);
+  const type = normalizeType(answers.type);
+
+  if (!type) {
+    throw new Error("Tipo inv\u00e1lido. Use site, app, carrossel ou crm.");
+  }
+
+  if (!answers.name?.trim()) {
+    throw new Error("Informe um nome para o projeto.");
+  }
+
+  const slug = slugify(answers.name);
+  if (!slug) {
+    throw new Error("O nome precisa conter letras ou n\u00fameros.");
+  }
+
+  validateFaviconInput(answers.favicon);
+
+  const explicitOutput = parsed.options.saida || parsed.options.output;
+  const destination = explicitOutput
+    ? resolve(process.cwd(), String(explicitOutput))
+    : join(DEFAULT_OUTPUT, slug);
+
+  if (existsSync(destination)) {
+    throw new Error(`O destino j\u00e1 existe: ${destination}`);
+  }
+
+  if (type === "crm") {
+    if (!commandExists("git")) {
+      throw new Error("Git \u00e9 obrigat\u00f3rio para criar um CRM a partir do wacrm.");
+    }
+
+    const repository = resolve(parsed.options["crm-repo"] || parsed.options["repositorio-crm"] || WACRM_REPOSITORY);
+    const sourceRef = String(parsed.options["crm-ref"] || parsed.options["versao-crm"] || WACRM_STABLE_REF).trim();
+    const crmTemplate = join(TEMPLATE_ROOT, TYPES.crm.template);
+    if (!existsSync(crmTemplate)) {
+      throw new Error("Template de integra\u00e7\u00e3o do wacrm ausente. Rode o diagn\u00f3stico.");
+    }
+
+    ui.title(`Criando ${TYPES.crm.label}`);
+    ui.info(`Base oficial: ${repository} (${sourceRef})`);
+    ui.info(`Destino: ${destination}`);
+
+    const clone = runGit(["clone", "--depth", "1", "--branch", sourceRef, repository, destination], {
+      cwd: process.cwd(),
+      stdio: "inherit",
+    });
+    if (clone.status !== 0) {
+      throw new Error(`N\u00e3o foi poss\u00edvel clonar a base do wacrm${clone.error ? `: ${clone.error.message}` : "."}`);
+    }
+
+    copyTemplate(crmTemplate, destination);
+    copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(destination, ".supermotor"));
+    const tokens = projectTokens("crm", answers, slug, {
+      CRM_REPOSITORY: repository,
+      CRM_REF: sourceRef,
+    });
+    replaceTokens(join(destination, ".supermotor"), tokens);
+    replaceTokensInFile(join(destination, "SUPERMOTOR.md"), tokens);
+
+    const faviconSource = createCrmFavicon(destination, answers.favicon, answers.brandName, answers.accent);
+    replaceTokens(join(destination, ".supermotor"), { FAVICON_SOURCE: faviconSource });
+    initializeProjectTracking(destination, {
+      projectType: "crm",
+      name: answers.name.trim(),
+      objective: answers.brief.trim(),
+      success: answers.success.trim(),
+      essentials: answers.essentials.trim(),
+      constraints: answers.constraints.trim(),
+      brand: answers.brandName.trim(),
+      source: repository,
+      sourceRef,
+      upstream: WACRM_REPOSITORY,
+      license: "MIT",
+      motorVersion: "3.0.0",
+    });
+
+    ui.ok("wacrm clonado e contexto SUPERMOTOR aplicado");
+    ui.ok(`Favicon: ${faviconSource}`);
+
+    const displayPath = relative(process.cwd(), destination) || destination;
+    console.log("\nPronto. Pr\u00f3ximos passos:\n");
+    console.log(`  cd "${displayPath}"`);
+    console.log("  Leia SUPERMOTOR.md e siga a prepara\u00e7\u00e3o.");
+    console.log("  1. Crie uma conta gr\u00e1tis em supabase.com");
+    console.log("  2. Configure o projeto Supabase e rode as migra\u00e7\u00f5es");
+    console.log("  3. Configure o Meta WhatsApp Business API");
+    console.log("  4. Preencha .env.local com as credenciais");
+    console.log("  5. npm install && npm run dev");
+    console.log("\nDepois, pe\u00e7a \u00e0 IA:");
+    console.log('  "Leia AGENTS.md, SUPERMOTOR.md, .supermotor/CONVERSATION.md e .supermotor/SUPERPROMPT.md. Registre seu andamento, configure o Supabase, execute o CRM e adapte-o ao meu neg\u00f3cio."');
+    console.log(`\n${color("32", "CRM criado com sucesso:")} ${destination}\n`);
+    return;
+  }
+
+  const commonTemplate = join(TEMPLATE_ROOT, "common");
+  const typeTemplate = join(TEMPLATE_ROOT, TYPES[type].template);
+  if (!existsSync(commonTemplate) || !existsSync(typeTemplate)) {
+    throw new Error(`Template incompleto para ${type}. Rode o diagn\u00f3stico.`);
+  }
+
+  ui.title(`Criando ${TYPES[type].label}`);
+  ui.info(`Destino: ${destination}`);
+  mkdirSync(destination, { recursive: true });
+  copyTemplate(commonTemplate, destination);
+  copyTemplate(typeTemplate, destination);
+  copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(destination, ".supermotor"));
+
+  replaceTokens(destination, projectTokens(type, answers, slug));
+
+  const faviconSource = createFavicon(destination, answers.favicon, answers.brandName, answers.accent);
+  replaceTokens(destination, { FAVICON_SOURCE: faviconSource });
+  initializeProjectTracking(destination, {
+    projectType: type,
+    name: answers.name.trim(),
+    objective: answers.brief.trim(),
+    success: answers.success.trim(),
+    essentials: answers.essentials.trim(),
+    constraints: answers.constraints.trim(),
+    brand: answers.brandName.trim(),
+    motorVersion: "3.0.0",
+  });
+
+  ui.ok("Starter e contexto de IA criados");
+  ui.ok(`Favicon: ${faviconSource}`);
+
+  const skipInstall = Boolean(parsed.options["sem-instalar"] || parsed.options["skip-install"]);
+  if (!skipInstall) npmInstall(destination);
+
+  const displayPath = relative(process.cwd(), destination) || destination;
+  console.log("\nPronto. Pr\u00f3ximos passos:\n");
+  console.log(`  cd "${displayPath}"`);
+  if (skipInstall) console.log("  npm install");
+  console.log("  npm run dev");
+  console.log("\nDepois, pe\u00e7a \u00e0 IA:");
+  console.log('  "Leia SUPERPROMPT.md, PRODUCT.md, CONVERSATION.md, BRAND.md, DESIGN.md e QUALITY.md. Registre seu andamento e execute o projeto at\u00e9 passar em todos os crit\u00e9rios."');
+  console.log(`\n${color("32", "Projeto criado com sucesso:")} ${destination}\n`);
+}
+
+async function validateProject(parsed) {
+  const requestedPath = parsed.positionals[1] || ".";
+  const project = resolve(process.cwd(), requestedPath);
+  ui.title("SUPERMOTOR \u2014 valida\u00e7\u00e3o");
+  ui.info(`Projeto: ${project}`);
+
+  if (!existsSync(project) || !statSync(project).isDirectory()) {
+    throw new Error(`Projeto n\u00e3o encontrado: ${project}`);
+  }
+
+  const crmMarker = join(project, ".supermotor", "project.json");
+  if (existsSync(crmMarker)) {
+    try {
+      const metadata = JSON.parse(readFileSync(crmMarker, "utf8"));
+      if (metadata.projectType === "crm") {
+        validateCrmProject(project, parsed);
+        return;
+      }
+    } catch {
+      throw new Error("Metadados inv\u00e1lidos em .supermotor/project.json.");
+    }
+  }
+
+  const failures = [];
+  const pass = (condition, success, failure) => {
+    if (condition) ui.ok(success);
+    else {
+      ui.fail(failure);
+      failures.push(failure);
+    }
+  };
+
+  for (const file of ["package.json", "PRODUCT.md", "CONVERSATION.md", "BRAND.md", "DESIGN.md", "QUALITY.md", "SUPERPROMPT.md", ".supermotor/project.json", ".supermotor/agent.mjs", ".supermotor/AGENT_PROTOCOL.md"]) {
+    pass(existsSync(join(project, file)), file, `Arquivo obrigat\u00f3rio ausente: ${file}`);
+  }
+
+  const appDirectory = join(project, "src", "app");
+  const appFiles = existsSync(appDirectory) ? readdirSync(appDirectory) : [];
+  const hasFavicon = appFiles.some((file) => /^(favicon\.ico|icon\.(ico|jpe?g|png|svg|tsx?|jsx?))$/i.test(file));
+  pass(hasFavicon, "Favicon configurado", "Favicon ausente em src/app");
+
+  const sourceFiles = collectFiles(join(project, "src"));
+  const readableFiles = sourceFiles.filter((file) => /\.(css|html|js|jsx|ts|tsx)$/i.test(file));
+  const source = readableFiles.map((file) => readFileSync(file, "utf8")).join("\n");
+  const contextFiles = ["package.json", "PRODUCT.md", "CONVERSATION.md", "BRAND.md", "DESIGN.md", "QUALITY.md", "SUPERPROMPT.md", "AGENTS.md", ".supermotor/project.json", ".supermotor/AGENT_PROTOCOL.md"]
+    .map((file) => join(project, file))
+    .filter((file) => existsSync(file));
+  const projectContext = [...readableFiles, ...contextFiles].map((file) => readFileSync(file, "utf8")).join("\n");
+  const forbiddenZoom = /userScalable\s*:\s*false|user-scalable\s*=\s*no|maximumScale\s*:\s*[01](?:\D|$)|maximum-scale\s*=\s*[01](?:\D|$)/i;
+  pass(!forbiddenZoom.test(source), "Zoom acess\u00edvel preservado", "Configura\u00e7\u00e3o bloqueia o zoom do usu\u00e1rio");
+  pass(/width\s*:\s*["']device-width["']/.test(source) && /initialScale\s*:\s*1/.test(source), "Viewport mobile correto", "Viewport width=device-width e initialScale=1 n\u00e3o encontrada");
+  pass(/overflow-x\s*:\s*(clip|hidden)/i.test(source), "Overflow horizontal protegido", "Prote\u00e7\u00e3o contra overflow horizontal ausente");
+  pass(/-webkit-text-size-adjust\s*:\s*100%/i.test(source), "Escala de texto mobile est\u00e1vel", "-webkit-text-size-adjust: 100% ausente");
+  pass(/touch-action\s*:\s*manipulation/i.test(source), "Autozoom em controles reduzido", "touch-action: manipulation ausente nos controles");
+  pass(/font-size\s*:\s*16px\s*!important/i.test(source), "Inputs mobile com tamanho seguro", "Prote\u00e7\u00e3o global de 16px para inputs mobile ausente");
+  pass(!/__(PROJECT|BRAND|FAVICON)_/.test(projectContext), "Tokens substitu\u00eddos", "H\u00e1 tokens do template sem substitui\u00e7\u00e3o");
+
+  if (failures.length > 0) {
+    console.log(`\n${failures.length} problema(s) precisam ser corrigidos.\n`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const skipBuild = Boolean(parsed.options["sem-build"] || parsed.options["static-only"]);
+  if (skipBuild) {
+    console.log("\nValida\u00e7\u00e3o est\u00e1tica aprovada.\n");
+    return;
+  }
+
+  if (!existsSync(join(project, "node_modules"))) {
+    ui.fail("Depend\u00eancias ausentes. Rode npm install ou use --sem-build.");
+    process.exitCode = 1;
+    return;
+  }
+
+  ui.info("Executando typecheck, lint e build...");
+  const { runNpm } = await import("./templates.mjs");
+  const result = runNpm(["run", "check"], { cwd: project, stdio: "inherit" });
+  if (result.status !== 0) {
+    if (result.error) ui.fail(result.error.message);
+    ui.fail("Quality gate t\u00e9cnica reprovada");
+    process.exitCode = result.status || 1;
+    return;
+  }
+
+  ui.ok("Quality gate t\u00e9cnica aprovada");
+  console.log("\nProjeto aprovado pelo SUPERMOTOR.\n");
+}
+
+async function validateCrmProject(project, parsed) {
+  const failures = [];
+  const pass = (condition, success, failure) => {
+    if (condition) ui.ok(success);
+    else {
+      ui.fail(failure);
+      failures.push(failure);
+    }
+  };
+
+  const requiredFiles = [
+    "package.json",
+    "AGENTS.md",
+    "SUPERMOTOR.md",
+    "src/app/layout.tsx",
+    "next.config.ts",
+    ".supermotor/project.json",
+    ".supermotor/PRODUCT.md",
+    ".supermotor/CONVERSATION.md",
+    ".supermotor/BRAND.md",
+    ".supermotor/QUALITY.md",
+    ".supermotor/SUPERPROMPT.md",
+    ".supermotor/agent.mjs",
+    ".supermotor/AGENT_PROTOCOL.md",
+  ];
+  for (const file of requiredFiles) {
+    pass(existsSync(join(project, file)), file, `Arquivo obrigat\u00f3rio ausente: ${file}`);
+  }
+
+  const publicDirectory = join(project, "public");
+  const publicFiles = existsSync(publicDirectory) ? readdirSync(publicDirectory) : [];
+  pass(publicFiles.some((file) => /^supermotor-icon\.(ico|jpe?g|png|svg)$/i.test(file)), "Favicon do CRM configurado", "Favicon do CRM ausente em public");
+
+  const globalsPath = join(project, "src", "app", "globals.css");
+  const css = existsSync(globalsPath) ? readFileSync(globalsPath, "utf8") : "";
+  pass(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*[01](?:\D|$)/i.test(css), "Zoom acess\u00edvel preservado", "Viewport do CRM bloqueia o zoom do usu\u00e1rio");
+  pass(/overflow-x\s*:\s*(clip|hidden)/i.test(css), "Overflow horizontal protegido", "Prote\u00e7\u00e3o contra overflow horizontal ausente");
+  pass(/-webkit-text-size-adjust\s*:\s*100%/i.test(css), "Escala de texto mobile est\u00e1vel", "Escala de texto mobile n\u00e3o protegida");
+  pass(/touch-action\s*:\s*manipulation/i.test(css), "Intera\u00e7\u00f5es de toque protegidas", "touch-action: manipulation ausente");
+  pass(/font-size\s*:\s*16px\s*!important/i.test(css), "Inputs mobile com tamanho seguro", "Prote\u00e7\u00e3o de 16px para inputs mobile ausente");
+
+  const contextDirectory = join(project, ".supermotor");
+  const contextFiles = existsSync(contextDirectory) ? collectFiles(contextDirectory).filter((file) => /\.(json|md)$/i.test(file)) : [];
+  const context = [...contextFiles, join(project, "SUPERMOTOR.md")]
+    .filter((file) => existsSync(file))
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n");
+  pass(!/__(PROJECT|BRAND|FAVICON|CRM)_/.test(context), "Tokens substitu\u00eddos", "H\u00e1 tokens do CRM sem substitui\u00e7\u00e3o");
+
+  if (failures.length > 0) {
+    console.log(`\n${failures.length} problema(s) precisam ser corrigidos.\n`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const skipBuild = Boolean(parsed.options["sem-build"] || parsed.options["static-only"]);
+  if (skipBuild) {
+    console.log("\nValida\u00e7\u00e3o est\u00e1tica do wacrm aprovada.\n");
+    return;
+  }
+
+  if (!existsSync(join(project, "node_modules"))) {
+    ui.fail("Depend\u00eancias ausentes. Rode npm install ou use --sem-build.");
+    process.exitCode = 1;
+    return;
+  }
+
+  ui.info("Executando build do wacrm...");
+  const { runNpm } = await import("./templates.mjs");
+  const build = runNpm(["run", "build"], { cwd: project, stdio: "inherit" });
+  if (build.status !== 0) {
+    ui.fail("Build do wacrm reprovado");
+    process.exitCode = build.status || 1;
+    return;
+  }
+
+  ui.ok("Quality gate t\u00e9cnica do wacrm aprovada");
+  console.log("\nCRM aprovado pelo SUPERMOTOR.\n");
+}
+
+export { createProject, validateProject, validateCrmProject, promptForMissing };
