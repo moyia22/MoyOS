@@ -275,6 +275,7 @@ Editor visual de carrosséis Instagram/LinkedIn com exportação PNG 1080x1350.
 | `doctor` | `diagnostico` | Diagnostica a saúde do motor |
 | `config` | `cfg` | Configuração do Supermotor |
 | `atividade` | `event`, `evento` | Registra atividade manual |
+| `plugins` | `extensoes` | Lista plugins instalados |
 
 ### Opções
 
@@ -299,6 +300,7 @@ Editor visual de carrosséis Instagram/LinkedIn com exportação PNG 1080x1350.
 | `--nao-abrir` | Painel sem navegador |
 | `--json` | Saída em JSON puro (listar) |
 | `--verbose` | Informações detalhadas de debug |
+| `--idioma "lang"` | Idioma (pt-br, en, es) |
 
 ### Exemplos
 
@@ -499,11 +501,13 @@ Configurações persistidas em `~/.config/supermotor/config.json`:
 |-------|--------|-----------|
 | `dashboard.port` | `4545` | Porta do painel |
 | `dashboard.openBrowser` | `true` | Abrir navegador automaticamente |
-| `brand.defaultColor` | `#6366f1` | Cor de destaque |
-| `brand.defaultTom` | `"` | Tom de voz |
+| `brand.accent` | `#6366f1` | Cor de destaque |
+| `brand.tone` | `""` | Tom de voz |
+| `brand.audience` | `""` | Público-alvo |
 | `project.outputDir` | `.` | Diretório de saída |
 | `project.skipInstall` | `false` | Pular npm install |
 | `project.skipBuild` | `false` | Pular build |
+| `language` | `pt-br` | Idioma da CLI |
 
 ---
 
@@ -562,10 +566,10 @@ Tokens `__PROJECT_*__`, `__BRAND_*__`, `__FAVICON_*__`, `__CRM_*__` substituído
 npm test
 ```
 
-84 testes automatizados (68 unitários + 16 integração) cobrindo:
+108 testes automatizados (92 unitários + 16 integração) cobrindo:
 
-- Módulos: brand, tokens, csv, constants, project
-- Integração: 5 tipos de projeto, validação, state, doctor, verbose, tokens, JSON
+- Módulos: brand, tokens, csv, constants, config
+- Integração: 5 tipos de projeto, validação, state, config, doctor, verbose, tokens, JSON
 - Smoke test e dashboard test
 - CI/CD: GitHub Actions (ubuntu + windows, Node 20 + 22)
 
