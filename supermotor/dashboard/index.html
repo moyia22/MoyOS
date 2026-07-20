@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#181b1a" />
+    <meta name="description" content="Central local de projetos e agentes do SUPERMOTOR" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>SUPERMOTOR — Control Room</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Projetos">
+        <div class="brand-block">
+          <span class="brand-mark" aria-hidden="true">S</span>
+          <div>
+            <strong>SUPERMOTOR</strong>
+            <span>Control Room</span>
+          </div>
+        </div>
+
+        <div class="connection-row">
+          <span class="connection-dot" id="connection-dot" aria-hidden="true"></span>
+          <span id="connection-label">Conectando ao motor…</span>
+        </div>
+
+        <div class="sidebar-heading">
+          <span>Projetos</span>
+          <span class="count-badge" id="project-count">0</span>
+        </div>
+        <nav class="project-list" id="project-list" aria-label="Lista de projetos"></nav>
+
+        <div class="sidebar-help">
+          <span class="eyebrow">Atualização ao vivo</span>
+          <p>Atividades dos agentes e arquivos modificados aparecem aqui automaticamente.</p>
+          <code>node .supermotor/agent.mjs</code>
+        </div>
+      </aside>
+
+      <main class="main" id="conteudo" tabindex="-1">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow" id="project-type">CENTRAL LOCAL</span>
+            <h1 id="project-name">Visão dos projetos</h1>
+            <p id="project-objective">Acompanhe o que está acontecendo sem precisar procurar em terminais e arquivos.</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="button secondary" id="refresh-button" type="button">Atualizar</button>
+            <button class="button primary" id="copy-prompt-button" type="button" disabled>Copiar prompt da IA</button>
+          </div>
+        </header>
+
+        <section class="empty-state" id="empty-state" hidden>
+          <span class="empty-icon" aria-hidden="true">＋</span>
+          <h2>Nenhum projeto acompanhado</h2>
+          <p>Crie um projeto com o SUPERMOTOR. Ele será registrado aqui automaticamente.</p>
+          <code>.\supermotor.ps1 criar app "Meu projeto"</code>
+        </section>
+
+        <div id="dashboard-content" hidden>
+          <section class="metrics-grid" aria-label="Resumo do projeto">
+            <article class="metric-card">
+              <span>Progresso estimado</span>
+              <strong class="tabular" id="metric-progress">0%</strong>
+              <progress id="project-progress" max="100" value="0">0%</progress>
+            </article>
+            <article class="metric-card">
+              <span>Agentes trabalhando</span>
+              <strong class="tabular" id="metric-agents">0</strong>
+              <small id="metric-agents-note">Nenhum agente ativo</small>
+            </article>
+            <article class="metric-card">
+              <span>Arquivos recentes</span>
+              <strong class="tabular" id="metric-files">0</strong>
+              <small>Monitorados localmente</small>
+            </article>
+            <article class="metric-card">
+              <span>Última atualização</span>
+              <strong class="metric-time tabular" id="metric-updated">—</strong>
+              <small id="metric-sync">Sincronização ao vivo</small>
+            </article>
+          </section>
+
+          <div class="content-grid">
+            <section class="panel agents-panel" aria-labelledby="agents-title">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">EQUIPE DIGITAL</span>
+                  <h2 id="agents-title">Agentes</h2>
+                </div>
+                <span class="live-pill"><span aria-hidden="true"></span> AO VIVO</span>
+              </div>
+              <div class="agents-grid" id="agents-grid"></div>
+            </section>
+
+            <section class="panel activity-panel" aria-labelledby="activity-title">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">HISTÓRICO</span>
+                  <h2 id="activity-title">O que está acontecendo</h2>
+                </div>
+              </div>
+              <ol class="timeline" id="activity-list"></ol>
+            </section>
+
+            <section class="panel brief-panel" aria-labelledby="brief-title">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">CONTEXTO COMPARTILHADO</span>
+                  <h2 id="brief-title">Entendimento do projeto</h2>
+                </div>
+              </div>
+              <dl class="brief-list">
+                <div><dt>Objetivo</dt><dd id="brief-objective">—</dd></div>
+                <div><dt>Sucesso</dt><dd id="brief-success">—</dd></div>
+                <div><dt>Primeira versão</dt><dd id="brief-essentials">—</dd></div>
+                <div><dt>Limites</dt><dd id="brief-constraints">—</dd></div>
+              </dl>
+            </section>
+
+            <section class="panel files-panel" aria-labelledby="files-title">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">MOVIMENTO NO CÓDIGO</span>
+                  <h2 id="files-title">Arquivos recentes</h2>
+                </div>
+              </div>
+              <ul class="file-list" id="file-list"></ul>
+            </section>
+
+            <section class="panel prompt-panel" aria-labelledby="prompt-title">
+              <div class="panel-header prompt-header">
+                <div>
+                  <span class="eyebrow">CONVERSA COM A IA</span>
+                  <h2 id="prompt-title">Prompt alinhado ao estado atual</h2>
+                </div>
+                <button class="text-button" id="copy-prompt-inline" type="button">Copiar</button>
+              </div>
+              <textarea id="project-prompt" readonly aria-label="Prompt recomendado para a IA"></textarea>
+            </section>
+
+            <section class="panel update-panel" aria-labelledby="update-title">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">REGISTRO MANUAL</span>
+                  <h2 id="update-title">Adicionar atualização</h2>
+                </div>
+              </div>
+              <form id="activity-form">
+                <div class="form-grid">
+                  <label>Agente<input id="activity-agent" name="agent" value="Eu" maxlength="80" required /></label>
+                  <label>Estado
+                    <select id="activity-status" name="status">
+                      <option value="working">Trabalhando</option>
+                      <option value="planning">Planejando</option>
+                      <option value="testing">Testando</option>
+                      <option value="reviewing">Revisando</option>
+                      <option value="blocked">Bloqueado</option>
+                      <option value="done">Concluído</option>
+                    </select>
+                  </label>
+                </div>
+                <label>Ação<input id="activity-action" name="action" maxlength="180" placeholder="Ex.: Revisando o fluxo de cadastro" required /></label>
+                <label>Detalhes opcionais<textarea id="activity-detail" name="detail" maxlength="1200" placeholder="Contexto útil, sem senhas ou dados confidenciais"></textarea></label>
+                <div class="form-footer">
+                  <span class="form-message" id="form-message" role="status"></span>
+                  <button class="button primary" type="submit">Registrar atualização</button>
+                </div>
+              </form>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
+

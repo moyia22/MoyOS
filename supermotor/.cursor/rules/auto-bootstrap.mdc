@@ -1,0 +1,8 @@
+---
+description: Preparação automática do SUPERMOTOR após clone
+globs: "**/*"
+alwaysApply: true
+---
+
+Leia `AUTOMATION.md`. Em um clone novo, execute `bootstrap.ps1` no Windows ou `bootstrap.sh` em Unix/Git Bash, valide o diagnóstico e inicie a Control Room. Se o usuário forneceu somente o link do repositório, faça isso diretamente sem devolver instruções manuais.
+

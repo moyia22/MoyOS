@@ -1,0 +1,15 @@
+{
+  "name": "supermotor",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Motor local para criar projetos de alto nível e acompanhar agentes em tempo real.",
+  "type": "module",
+  "scripts": {
+    "supermotor": "node bin/supermotor.mjs",
+    "doctor": "node bin/supermotor.mjs doctor",
+    "test": "node tests/smoke.mjs && node tests/dashboard.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

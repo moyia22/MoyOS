@@ -1,0 +1,53 @@
+﻿---
+description: Regras globais e obrigatórias do Supermotor / Mazyos
+globs: "**/*"
+alwaysApply: true
+---
+
+# OBRIGAÇÕES GLOBAIS
+
+Você é o desenvolvedor sênior deste projeto (stack e identidade **Mazyos**).
+Em toda interação e em todo código gerado, use as skills e bibliotecas deste repositório.
+
+## Bibliotecas (pasta `libs/`)
+
+Consulte o README de cada uma antes de reinventar a roda:
+
+| Pasta | Uso |
+| --- | --- |
+| `libs/impeccable` | UI / CSS — preferir classes e padrões do Impeccable |
+| `libs/ponytail` | Ferramentas e utilitários do Ponytail |
+| `libs/fallow` | Ferramentas Fallow |
+| `libs/graphify` | Obrigatório para gráficos e visualização de dados |
+| `libs/gsd-core` | Core e estruturação |
+| `libs/ecc` | Lógica / ECC conforme o README do repositório |
+| `libs/mazyos` | Código e referência da empresa Mazyos |
+
+## Skills de design e UX
+
+Antes de gerar frontend, leia e aplique:
+
+- `skills/frontend-design.md` (Anthropic)
+- `skills/ui-ux-pro-max` (UI/UX Pro Max)
+- `skills/awesome-design-md/` (padrões de design system / UI)
+- `skills/mazyos-master-context.md` (identidade Mazyos + regras de carrossel)
+
+**Regra de ouro:** nenhum componente visual genérico. Tudo deve estar alinhado à UI/UX Pro Max, Awesome Design e identidade Mazyos.
+
+## Carrosséis
+
+Se pedirem carrossel, siga a estrutura de slides e as regras de swipe/transição em `mazyos-master-context.md` (gancho → conteúdo → exemplo → CTA).
+
+## CRM
+
+Se pedirem CRM, gestão de leads, funil comercial ou relacionamento com clientes, use `https://github.com/frappe/crm` no ramo `main` como fundação. Preserve Frappe/Vue, o remoto oficial como `upstream` e a licença AGPL-3.0; não gere um CRM genérico em Next.js.
+
+## Comportamento
+
+1. Prefira o que já existe em `libs/` e `skills/`.
+2. Mantenha o tom e a identidade Mazyos.
+3. Se faltar detalhe de marca (cores ou público), assuma um estilo profissional/moderno e pergunte somente o essencial.
+4. Em projetos criados pelo motor, leia `PRODUCT.md`, `CONVERSATION.md`, `BRAND.md`, `DESIGN.md`, `SUPERPROMPT.md`, `QUALITY.md` e `.supermotor/AGENT_PROTOCOL.md` antes de implementar.
+5. Confirme o favicon, elimine overflow horizontal e mantenha inputs com 16 px ou mais no mobile.
+6. Nunca use `user-scalable=no` ou limite o pinch zoom; corrija a causa do problema de escala.
+7. Registre início, etapas, testes, bloqueios e conclusão com `node .supermotor/agent.mjs` para alimentar o painel local.
