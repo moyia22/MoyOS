@@ -42,7 +42,7 @@ function protectLocalTrackingFiles(projectPath) {
   const gitignorePath = join(projectPath, ".gitignore");
   const current = existsSync(gitignorePath) ? readFileSync(gitignorePath, "utf8") : "";
   const entries = [".supermotor/activity.jsonl", ".supermotor/agents.json"];
-  const missing = entries.filter((entry) => !current.split(/\r?\n/).includes(entry));
+  const missing = entries.filter((entry) => !current.split(/\r?\n/).some((line) => line.includes(entry)));
   if (!missing.length) return;
   const separator = current && !current.endsWith("\n") ? "\n" : "";
   writeFileSync(gitignorePath, `${current}${separator}\n# SUPERMOTOR — atividade local dos agentes\n${missing.join("\n")}\n`, "utf8");
@@ -194,4 +194,11 @@ export function listRegisteredProjects() {
 export function findRegisteredProject(identifier) {
   const projects = listRegisteredProjects();
   return projects.find((project) => project.id === identifier || samePath(project.path, identifier));
+}
+
+export function unregisterProject(projectPath) {
+  const absolutePath = resolve(projectPath);
+  const projects = readJson(PROJECTS_FILE, []);
+  const next = projects.filter((project) => !samePath(project.path, absolutePath));
+  writeJson(PROJECTS_FILE, next);
 }

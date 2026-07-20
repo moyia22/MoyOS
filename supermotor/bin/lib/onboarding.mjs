@@ -3,16 +3,13 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { join } from "node:path";
 import { color, ui } from "./ui.mjs";
-import { normalizeType } from "./constants.mjs";
-import { normalizeHexColor } from "./brand.mjs";
-import { generateDesignRecommendations, generateSuggestions } from "./design.mjs";
-import { findBrandReferences, generateBrandKitMarkdown } from "./brand.mjs";
-import { generateDesignMarkdown, generateSuggestionsMarkdown, generateProjectContextFromOnboarding } from "./design.mjs";
-import { replaceTokens } from "./tokens.mjs";
+import { normalizeType, slugify, DEFAULT_OUTPUT } from "./constants.mjs";
+import { normalizeHexColor, findBrandReferences, generateBrandKitMarkdown, createFavicon, createCrmFavicon } from "./brand.mjs";
+import { generateDesignRecommendations, generateSuggestions, generateDesignMarkdown, generateSuggestionsMarkdown, generateProjectContextFromOnboarding } from "./design.mjs";
+import { replaceTokens, projectTokens, replaceTokensInFile } from "./tokens.mjs";
 import { copyTemplate, npmInstall, commandExists, runGit } from "./templates.mjs";
 import { initializeProjectTracking } from "../supermotor-state.mjs";
 import { ROOT, TEMPLATE_ROOT, TYPES, WACRM_REPOSITORY, WACRM_STABLE_REF, DEFAULT_BRAND } from "./constants.mjs";
-import { createCrmFavicon } from "./brand.mjs";
 import { resolve } from "node:path";
 
 function onboardingProgress(current, total) {
@@ -649,8 +646,8 @@ async function runOnboarding() {
         ui.warn("Nao foi possivel criar o projeto automaticamente. Use supermotor criar com os dados do onboarding.");
         console.log(`\n  Exemplo: supermotor criar ${data.projectType} "${data.projectName || "Nome do Projeto"}"`);
       } else {
-        const slug = (await import("./constants.mjs")).slugify(data.projectName);
-        const destination = join((await import("./constants.mjs")).DEFAULT_OUTPUT, slug);
+        const slug = slugify(data.projectName);
+        const destination = join(DEFAULT_OUTPUT, slug);
 
         if (existsSync(destination)) {
           ui.warn(`Ja existe um projeto com o nome "${data.projectName}" em projetos/${slug}`);
@@ -671,8 +668,8 @@ async function runOnboarding() {
 
           if (resolvedType === "crm") {
             const crmDestination = destination;
-            const repository = (await import("./constants.mjs")).WACRM_REPOSITORY;
-            const sourceRef = (await import("./constants.mjs")).WACRM_STABLE_REF;
+            const repository = WACRM_REPOSITORY;
+            const sourceRef = WACRM_STABLE_REF;
 
             if (!commandExists("git")) {
               throw new Error("Git e obrigatorio para criar um CRM a partir do wacrm.");
@@ -697,12 +694,12 @@ async function runOnboarding() {
 
             copyTemplate(crmTemplate, crmDestination);
             copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(crmDestination, ".supermotor"));
-            const tokens = (await import("./tokens.mjs")).projectTokens("crm", answers, slug, {
+            const tokens = projectTokens("crm", answers, slug, {
               CRM_REPOSITORY: repository,
               CRM_REF: sourceRef,
             });
             replaceTokens(join(crmDestination, ".supermotor"), tokens);
-            (await import("./tokens.mjs")).replaceTokensInFile(join(crmDestination, "SUPERMOTOR.md"), tokens);
+            replaceTokensInFile(join(crmDestination, "SUPERMOTOR.md"), tokens);
 
             const faviconSource = createCrmFavicon(crmDestination, answers.favicon, answers.brandName, answers.accent);
             replaceTokens(join(crmDestination, ".supermotor"), { FAVICON_SOURCE: faviconSource });
@@ -737,9 +734,6 @@ async function runOnboarding() {
             console.log('  "Leia AGENTS.md, SUPERMOTOR.md, .supermotor/CONVERSATION.md e .supermotor/SUPERPROMPT.md. Registre seu andamento, configure o Supabase, execute o CRM e adapte-o ao meu negocio."');
             console.log(`\n${color("32", "CRM criado com sucesso:")} ${crmDestination}\n`);
           } else {
-            const { slugify: slugFn, DEFAULT_OUTPUT: defaultOut } = await import("./constants.mjs");
-            const { projectTokens: ptFn } = await import("./tokens.mjs");
-
             ui.title(`Criando ${TYPES[resolvedType].label}`);
             ui.info(`Destino: ${destination}`);
             mkdirSync(destination, { recursive: true });
@@ -750,9 +744,8 @@ async function runOnboarding() {
               copyTemplate(commonTemplate, destination);
               copyTemplate(typeTemplate, destination);
               copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(destination, ".supermotor"));
-              replaceTokens(destination, ptFn(resolvedType, answers, slug));
-              const { createFavicon: cfFn } = await import("./brand.mjs");
-              const faviconSource = cfFn(destination, answers.favicon, answers.brandName, answers.accent);
+              replaceTokens(destination, projectTokens(resolvedType, answers, slug));
+              const faviconSource = createFavicon(destination, answers.favicon, answers.brandName, answers.accent);
               replaceTokens(destination, { FAVICON_SOURCE: faviconSource });
               initializeProjectTracking(destination, {
                 projectType: resolvedType,

@@ -5,7 +5,7 @@ import { color, ui } from "./ui.mjs";
 import { ROOT, TEMPLATE_ROOT, TYPES } from "./constants.mjs";
 import { copyTemplate } from "./templates.mjs";
 import { commandExists } from "./templates.mjs";
-import { appendActivity, initializeProjectTracking, STATE_ROOT, listRegisteredProjects } from "../supermotor-state.mjs";
+import { appendActivity, initializeProjectTracking, STATE_ROOT, listRegisteredProjects, unregisterProject } from "../supermotor-state.mjs";
 
 function recordActivity(parsed) {
   const requestedPath = parsed.positionals[1] || ".";
@@ -210,15 +210,12 @@ function listProjectsCommand() {
   const typeColors = { site: "36", app: "35", carousel: "33", crm: "32", project: "37" };
 
   for (const project of projects) {
-    const type = project.projectType || "project";
+    const type = project.type || "project";
     const typeLabel = TYPES[type]?.label || type;
     const statusColor = typeColors[type] || "37";
-    const progress = project.progress || 0;
-    const bar = "\u2588".repeat(Math.round(progress / 5)) + "\u2591".repeat(20 - Math.round(progress / 5));
 
     console.log(`  ${color(statusColor, typeLabel.padEnd(20))} ${project.name || "Sem nome"}`);
     console.log(`    ${color("2", `Caminho: ${project.path}`)}`);
-    console.log(`    ${color("2", `Progresso: [${bar}] ${progress}%`)}`);
     if (project.brand) console.log(`    ${color("2", `Marca: ${project.brand}`)}`);
     console.log();
   }
@@ -247,9 +244,11 @@ async function removeProjectCommand(parsed) {
   const shouldDelete = parsed.options.deletar || parsed.options.delete;
   if (shouldDelete) {
     rmSync(project, { recursive: true, force: true });
+    unregisterProject(project);
     ui.ok(`Projeto removido: ${project}`);
   } else {
     rmSync(trackingDir, { recursive: true, force: true });
+    unregisterProject(project);
     ui.ok(`Registro do SUPERMOTOR removido de: ${project}`);
     ui.info("Os arquivos do projeto foram preservados.");
     ui.info("Para deletar os arquivos, use: supermotor remover <caminho> --deletar");

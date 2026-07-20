@@ -35,7 +35,7 @@ function parseCSVLine(line) {
 function readCSV(filename) {
   const path = join(UUPM_DATA, filename);
   if (!existsSync(path)) return [];
-  const content = readFileSync(path, "utf8");
+  const content = readFileSync(path, "utf8").replace(/^\uFEFF/, "");
   const lines = content.split(/\r?\n/).filter((line) => line.trim());
   if (lines.length < 2) return [];
   const headers = parseCSVLine(lines[0]);

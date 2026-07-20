@@ -14,7 +14,12 @@ import { initializeProjectTracking } from "../supermotor-state.mjs";
 async function promptForMissing(type, name, brief, options = {}) {
   if (!input.isTTY) {
     let piped = "";
-    for await (const chunk of input) piped += chunk;
+    const readStdin = new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve(piped), 5000);
+      input.on("data", (chunk) => { piped += chunk; });
+      input.on("end", () => { clearTimeout(timeout); resolve(piped); });
+    });
+    piped = await readStdin;
     const answers = piped.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
     const choice = type ? undefined : answers.shift();
     const resolvedType = type || { "1": "site", "2": "app", "3": "carousel", "4": "crm" }[choice] || normalizeType(choice);

@@ -45,7 +45,7 @@ function findBestTypography(tone, personality, industry) {
       best = row;
     }
   }
-  if (!best) best = typography[1];
+  if (!best) best = typography[0];
   return best;
 }
 
