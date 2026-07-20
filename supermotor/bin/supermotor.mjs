@@ -179,5 +179,12 @@ async function main() {
 
 main().catch((error) => {
   ui.fail(error.message);
+  if (error.message.includes("Comando desconhecido")) {
+    ui.hint("Rode supermotor --help para ver os comandos disponiveis");
+  } else if (error.message.includes("EACCES") || error.message.includes("permission")) {
+    ui.hint("Erro de percao. Execute o terminal como administrador ou verifique as permissoes da pasta.");
+  } else {
+    ui.hint("Se o problema persistir, rode supermotor doctor para verificar o ambiente.");
+  }
   process.exitCode = 1;
 });

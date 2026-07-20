@@ -9,7 +9,7 @@ const state = {
 
 const elements = Object.fromEntries([
   "connection-dot", "connection-label", "project-count", "project-list", "project-search", "project-type", "project-name", "project-objective",
-  "refresh-button", "copy-prompt-button", "copy-prompt-inline", "empty-state", "dashboard-content", "metric-health", "health-bar",
+  "refresh-button", "copy-prompt-button", "copy-prompt-inline", "empty-state", "dashboard-content", "metric-health", "health-bar", "health-breakdown",
   "metric-progress", "project-progress", "metric-agents", "metric-agents-note", "metric-files", "metric-files-size", "metric-updated", "metric-sync", "agents-grid",
   "activity-list", "brief-objective", "brief-success", "brief-essentials", "brief-constraints", "file-list", "project-prompt",
   "activity-form", "activity-agent", "activity-status", "activity-action", "activity-detail", "form-message", "toast",
@@ -91,14 +91,35 @@ function dateGroup(timestamp) {
 }
 
 function calculateHealth(project) {
-  if (!project) return 0;
-  let score = 50;
-  if (project.progress > 0) score += Math.min(project.progress / 2, 25);
-  if (project.activeAgentCount > 0) score += 10;
-  if (project.blockedAgentCount > 0) score -= project.blockedAgentCount * 15;
-  if (project.activities.length > 0) score += 5;
-  if (project.recentFiles.length > 3) score += 5;
-  return Math.max(0, Math.min(100, Math.round(score)));
+  if (!project) return { score: 0, label: "Sem dados", factors: [] };
+  const factors = [];
+  let score = 0;
+
+  const activityScore = Math.min(project.activities.length * 8, 30);
+  score += activityScore;
+  factors.push({ label: "Atividade", value: activityScore, max: 30, hint: project.activities.length ? `${project.activities.length} registros` : "Registre andamento com agentes" });
+
+  const fileScore = Math.min(project.recentFiles.length * 5, 20);
+  score += fileScore;
+  factors.push({ label: "Arquivos", value: fileScore, max: 20, hint: project.recentFiles.length ? `${project.recentFiles.length} arquivos recentes` : "Modifique arquivos para gerar movimento" });
+
+  const agentScore = Math.min(project.activeAgentCount * 15, 25);
+  score += agentScore;
+  factors.push({ label: "Agentes", value: agentScore, max: 25, hint: project.activeAgentCount ? `${project.activeAgentCount} agente(s) ativo(s)` : "Inicie um agente para trabalhar no projeto" });
+
+  const progressScore = Math.round(project.progress * 0.15);
+  score += progressScore;
+  factors.push({ label: "Progresso", value: progressScore, max: 15, hint: `${project.progress}% concluído` });
+
+  const conversationScore = project.conversation ? 10 : 0;
+  score += conversationScore;
+  factors.push({ label: "Contexto", value: conversationScore, max: 10, hint: project.conversation ? "CONVERSATION.md preenchido" : "Preencha o contexto conversacional" });
+
+  score -= project.blockedAgentCount * 8;
+  if (project.blockedAgentCount > 0) factors.push({ label: "Bloqueios", value: -project.blockedAgentCount * 8, max: 0, hint: `${project.blockedAgentCount} agente(s) bloqueado(s)` });
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  return { score, factors };
 }
 
 function healthLabel(score) {
@@ -107,6 +128,14 @@ function healthLabel(score) {
   if (score >= 40) return "Regular";
   if (score >= 20) return "Atenção";
   return "Crítico";
+}
+
+function healthColor(score) {
+  if (score >= 80) return "excellent";
+  if (score >= 60) return "good";
+  if (score >= 40) return "regular";
+  if (score >= 20) return "warning";
+  return "critical";
 }
 
 function showToast(message) {
@@ -137,7 +166,8 @@ function renderProjects(projects) {
     button.type = "button";
     button.dataset.projectId = project.id;
     button.setAttribute("aria-label", `Abrir projeto ${project.name}`);
-    const dot = node("span", `project-dot${project.blockedAgentCount ? " blocked" : project.activeAgentCount ? " active" : ""}`);
+    const health = calculateHealth(project);
+    const dot = node("span", `project-dot health-${healthColor(health.score)}`);
     dot.setAttribute("aria-hidden", "true");
     const label = node("span", "project-label");
     label.append(node("strong", "", project.name), node("span", "", TYPE_LABELS[project.type] || project.type));
@@ -236,11 +266,24 @@ function renderFiles(project) {
 function renderProject(project) {
   const health = calculateHealth(project);
   const healthScore = elements["metric-health"];
-  healthScore.textContent = `${health}% — ${healthLabel(health)}`;
-  healthScore.className = `tabular health-${health >= 80 ? "excellent" : health >= 60 ? "good" : health >= 40 ? "regular" : health >= 20 ? "warning" : "critical"}`;
+  healthScore.textContent = `${health.score}% — ${healthLabel(health.score)}`;
+  healthScore.className = `tabular health-${healthColor(health.score)}`;
   const healthBar = elements["health-bar"];
-  healthBar.querySelector("span").style.width = `${health}%`;
-  healthBar.querySelector("span").className = `health-fill health-${health >= 80 ? "excellent" : health >= 60 ? "good" : health >= 40 ? "regular" : health >= 20 ? "warning" : "critical"}`;
+  healthBar.querySelector("span").style.width = `${health.score}%`;
+  healthBar.querySelector("span").className = `health-fill health-${healthColor(health.score)}`;
+  const breakdown = elements["health-breakdown"];
+  clear(breakdown);
+  for (const factor of health.factors) {
+    const li = node("li", "health-factor");
+    const bar = node("span", "health-factor-bar");
+    const fill = node("span", `health-fill health-${factor.value < 0 ? "critical" : factor.value >= factor.max * 0.7 ? "excellent" : factor.value >= factor.max * 0.4 ? "good" : "warning"}`);
+    fill.style.width = `${factor.max > 0 ? Math.max(0, Math.min(100, (factor.value / factor.max) * 100)) : 0}%`;
+    bar.append(fill);
+    const text = node("span", "health-factor-text");
+    text.append(node("span", "health-factor-label", factor.label), node("span", "health-factor-hint", factor.hint));
+    li.append(bar, text);
+    breakdown.append(li);
+  }
   elements["project-type"].textContent = TYPE_LABELS[project.type] || project.type.toUpperCase();
   elements["project-name"].textContent = project.name;
   elements["project-objective"].textContent = project.objective || "Objetivo ainda não documentado.";

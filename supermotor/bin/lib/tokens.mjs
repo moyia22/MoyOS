@@ -6,30 +6,40 @@ import { mixWithWhite, readableTextColor } from "./brand.mjs";
 function replaceTokens(directory, tokens) {
   for (const entry of readdirSync(directory)) {
     const fullPath = join(directory, entry);
-    if (statSync(fullPath).isDirectory()) {
-      replaceTokens(fullPath, tokens);
-      continue;
-    }
+    try {
+      if (statSync(fullPath).isDirectory()) {
+        replaceTokens(fullPath, tokens);
+        continue;
+      }
+    } catch { continue; }
 
     const extension = entry.includes(".") ? `.${entry.split(".").pop()}` : "";
     if (!TEXT_EXTENSIONS.has(extension) && !["AGENTS.md", ".gitignore"].includes(entry)) {
       continue;
     }
 
-    let content = readFileSync(fullPath, "utf8");
-    for (const [token, replacement] of Object.entries(tokens)) {
-      content = content.replaceAll(`__${token}__`, replacement);
+    try {
+      let content = readFileSync(fullPath, "utf8");
+      for (const [token, replacement] of Object.entries(tokens)) {
+        content = content.replaceAll(`__${token}__`, replacement);
+      }
+      writeFileSync(fullPath, content, "utf8");
+    } catch {
+      // Skip files that cannot be read or written (locked, permission denied)
     }
-    writeFileSync(fullPath, content, "utf8");
   }
 }
 
 function replaceTokensInFile(path, tokens) {
-  let content = readFileSync(path, "utf8");
-  for (const [token, replacement] of Object.entries(tokens)) {
-    content = content.replaceAll(`__${token}__`, replacement);
+  try {
+    let content = readFileSync(path, "utf8");
+    for (const [token, replacement] of Object.entries(tokens)) {
+      content = content.replaceAll(`__${token}__`, replacement);
+    }
+    writeFileSync(path, content, "utf8");
+  } catch {
+    // Skip files that cannot be read or written
   }
-  writeFileSync(path, content, "utf8");
 }
 
 function collectFiles(directory) {

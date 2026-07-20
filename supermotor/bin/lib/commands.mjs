@@ -22,7 +22,7 @@ function recordActivity(parsed) {
   const requestedPath = parsed.positionals[1] || ".";
   const project = resolve(process.cwd(), requestedPath);
   if (!existsSync(join(project, ".supermotor", "project.json"))) {
-    throw new Error(`Projeto SUPERMOTOR n\u00e3o encontrado em: ${project}`);
+    throw new Error(`Projeto SUPERMOTOR nao encontrado em: ${project}\nDica: rode supermotor registrar <pasta> ou supermotor criar para gerar um novo projeto.`);
   }
   const activity = appendActivity(project, {
     agent: parsed.options.agent || parsed.options.agente || "Agente",
@@ -37,7 +37,7 @@ function registerExistingProject(parsed) {
   const requestedPath = parsed.positionals[1] || ".";
   const project = resolve(process.cwd(), requestedPath);
   if (!existsSync(project) || !statSync(project).isDirectory()) {
-    throw new Error(`Projeto n\u00e3o encontrado: ${project}`);
+    throw new Error(`Projeto nao encontrado: ${project}\nDica: verifique o caminho ou rode supermotor listar.`);
   }
   let packageMetadata = {};
   const packagePath = join(project, "package.json");
@@ -118,7 +118,7 @@ async function startDashboardDaemon(parsed) {
   if (existsSync(controlPath)) unlinkSync(controlPath);
   mkdirSync(STATE_ROOT, { recursive: true });
   const port = Number(parsed.options.porta || parsed.options.port || 4545);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Porta inv\u00e1lida para o painel.");
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Porta invalida para o painel. Use um valor entre 1 e 65535.");
   const args = [join(ROOT, "bin", "dashboard-server.mjs"), "--porta", String(port)];
   if (!shouldOpen) args.push("--nao-abrir");
   const child = spawn(process.execPath, args, {
@@ -173,9 +173,10 @@ function doctor() {
   }
 
   for (const cmd of ["npm", "git"]) {
-    if (commandExists(cmd)) ui.ok(`${cmd} dispon\u00edvel`);
+    if (commandExists(cmd)) ui.ok(`${cmd} disponivel`);
     else {
-      ui.fail(`${cmd} n\u00e3o encontrado`);
+      ui.fail(`${cmd} nao encontrado`);
+      ui.hint(cmd === "npm" ? "Instale o Node.js em https://nodejs.org" : "Instale o Git em https://git-scm.com");
       healthy = false;
     }
   }
@@ -188,6 +189,7 @@ function doctor() {
     if (existsSync(path)) ui.ok(`Template ${template}`);
     else {
       ui.fail(`Template ausente: ${path}`);
+      ui.hint("Execute setup.ps1 ou setup.sh para restaurar templates.");
       healthy = false;
     }
   }
@@ -304,12 +306,12 @@ async function removeProjectCommand(parsed) {
 
   const project = resolve(process.cwd(), requestedPath);
   if (!existsSync(project) || !statSync(project).isDirectory()) {
-    throw new Error(`Projeto n\u00e3o encontrado: ${project}`);
+    throw new Error(`Projeto nao encontrado: ${project}\nDica: verifique o caminho ou rode supermotor listar.`);
   }
 
   const trackingDir = join(project, ".supermotor");
   if (!existsSync(trackingDir)) {
-    throw new Error(`Projeto n\u00e3o registrado no SUPERMOTOR: ${project}`);
+    throw new Error(`Projeto nao registrado no SUPERMOTOR: ${project}\nDica: rode supermotor registrar <pasta> para registrar um projeto existente.`);
   }
 
   const shouldDelete = parsed.options.deletar || parsed.options.delete;
@@ -371,7 +373,7 @@ function atividadesCommand(parsed) {
   const project = resolve(process.cwd(), requestedPath);
 
   if (!existsSync(join(project, ".supermotor", "project.json"))) {
-    throw new Error(`Projeto SUPERMOTOR n\u00e3o encontrado em: ${project}`);
+    throw new Error(`Projeto SUPERMOTOR nao encontrado em: ${project}\nDica: rode supermotor registrar <pasta> ou supermotor criar para gerar um novo projeto.`);
   }
 
   const limit = Number(parsed.options.limite || parsed.options.limit || 10);
@@ -399,7 +401,7 @@ function agentesCommand(parsed) {
   const project = resolve(process.cwd(), requestedPath);
 
   if (!existsSync(join(project, ".supermotor", "project.json"))) {
-    throw new Error(`Projeto SUPERMOTOR n\u00e3o encontrado em: ${project}`);
+    throw new Error(`Projeto SUPERMOTOR nao encontrado em: ${project}\nDica: rode supermotor registrar <pasta> ou supermotor criar para gerar um novo projeto.`);
   }
 
   const agents = readAgents(project);
@@ -427,7 +429,7 @@ function statusCommand(parsed) {
   const project = resolve(process.cwd(), requestedPath);
 
   if (!existsSync(join(project, ".supermotor", "project.json"))) {
-    throw new Error(`Projeto SUPERMOTOR n\u00e3o encontrado em: ${project}`);
+    throw new Error(`Projeto SUPERMOTOR nao encontrado em: ${project}\nDica: rode supermotor registrar <pasta> ou supermotor criar para gerar um novo projeto.`);
   }
 
   const metadata = readProjectMetadata(project);

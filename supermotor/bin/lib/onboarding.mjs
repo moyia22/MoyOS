@@ -89,6 +89,7 @@ function loadPartialOnboarding() {
     if (!partial.data || typeof partial.data !== "object") return null;
     return partial;
   } catch {
+    // Partial file corrupted — start fresh
     return null;
   }
 }
@@ -258,7 +259,9 @@ async function runOnboarding() {
       mkdirSync(partialDir, { recursive: true });
       const partialPath = join(partialDir, ".onboarding-partial.json");
       writeFileSync(partialPath, JSON.stringify({ savedAt: new Date().toISOString(), data: terminal._partialData || {} }, null, 2), "utf8");
-    } catch {}
+    } catch (err) {
+      // Best effort — if save fails, progress will be lost on Ctrl+C
+    }
   };
 
   process.on("SIGINT", () => {
@@ -510,6 +513,7 @@ async function runOnboarding() {
       try {
         data.brandAccent = normalizeHexColor(data.brandAccent);
       } catch {
+        console.log("  Cor invalida, usando padrao #ff5a1f");
         data.brandAccent = "#ff5a1f";
       }
 

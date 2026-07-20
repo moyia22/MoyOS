@@ -311,7 +311,7 @@ async function createProject(parsed) {
         };
         const slug = slugify(answers.name);
         const destination = parsed.options.saida ? resolve(process.cwd(), String(parsed.options.saida)) : join(DEFAULT_OUTPUT, slug);
-        if (existsSync(destination)) throw new Error(`O destino ja existe: ${destination}`);
+        if (existsSync(destination)) throw new Error(`O destino ja existe: ${destination}\nDica: use --saida <outro-caminho> ou remova a pasta existente.`);
         await createProjectFromAnswers(resolvedType, answers, slug, destination, {
           injectContext: true,
           skipInstall: Boolean(parsed.options["sem-instalar"] || parsed.options["skip-install"]),
@@ -333,7 +333,7 @@ async function createProject(parsed) {
   if (!answers.name?.trim()) throw new Error("Informe um nome para o projeto.");
 
   const slug = slugify(answers.name);
-  if (!slug) throw new Error("O nome precisa conter letras ou numeros.");
+  if (!slug) throw new Error("O nome precisa conter letras ou numeros. Exemplo: \"Meu Site\"");
 
   validateFaviconInput(answers.favicon);
 
@@ -342,7 +342,7 @@ async function createProject(parsed) {
     ? resolve(process.cwd(), String(explicitOutput))
     : join(DEFAULT_OUTPUT, slug);
 
-  if (existsSync(destination)) throw new Error(`O destino ja existe: ${destination}`);
+  if (existsSync(destination)) throw new Error(`O destino ja existe: ${destination}\nDica: use --saida <outro-caminho> ou remova a pasta existente.`);
 
   await createProjectFromAnswers(type, answers, slug, destination, {
     skipInstall: Boolean(parsed.options["sem-instalar"] || parsed.options["skip-install"]),
@@ -359,7 +359,7 @@ async function validateProject(parsed) {
   ui.info(`Projeto: ${project}`);
 
   if (!existsSync(project) || !statSync(project).isDirectory()) {
-    throw new Error(`Projeto n\u00e3o encontrado: ${project}`);
+    throw new Error(`Projeto nao encontrado: ${project}\nDica: rode supermotor listar para ver projetos registrados.`);
   }
 
   const crmMarker = join(project, ".supermotor", "project.json");
@@ -371,7 +371,7 @@ async function validateProject(parsed) {
         return;
       }
     } catch {
-      throw new Error("Metadados inv\u00e1lidos em .supermotor/project.json.");
+      throw new Error("Metadados invalidos em .supermotor/project.json.\nDica: delete o arquivo e rode supermotor criar novamente para regenerar.");
     }
   }
 
@@ -410,7 +410,8 @@ async function validateProject(parsed) {
   pass(!/__(PROJECT|BRAND|FAVICON)_/.test(projectContext), "Tokens substitu\u00eddos", "H\u00e1 tokens do template sem substitui\u00e7\u00e3o");
 
   if (failures.length > 0) {
-    console.log(`\n${failures.length} problema(s) precisam ser corrigidos.\n`);
+    console.log(`\n${failures.length} problema(s) precisam ser corrigidos.`);
+    ui.hint("Corrija os problemas acima e rode supermotor validar novamente.");
     process.exitCode = 1;
     return;
   }
@@ -436,7 +437,7 @@ async function validateProject(parsed) {
   const buildDuration = performance.now() - buildStart;
   if (result.status !== 0) {
     spin.fail(`Quality gate tecnica reprovada (${formatDuration(buildDuration)})`);
-    if (result.error) ui.hint(result.error.message);
+    ui.hint("Rode npm run check manualmente para ver os erros detalhados.");
     process.exitCode = result.status || 1;
     return;
   }

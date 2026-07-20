@@ -45,7 +45,7 @@ function validateFaviconInput(faviconOption) {
 
   const source = resolve(process.cwd(), option);
   if (!existsSync(source) || !statSync(source).isFile()) {
-    throw new Error(`Favicon n\u00e3o encontrado: ${source}`);
+    throw new Error(`Favicon nao encontrado: ${source}\nDica: verifique se o caminho esta correto e o arquivo existe.`);
   }
   if (!ICON_EXTENSIONS.has(extname(source).toLowerCase())) {
     throw new Error("Favicon inv\u00e1lido. Use .ico, .png, .jpg, .jpeg ou .svg.");
@@ -59,7 +59,7 @@ function createFavicon(destination, faviconOption, brandName, accent) {
   if (option && !["auto", "automatico", "autom\u00e1tico"].includes(option.toLowerCase())) {
     const source = resolve(process.cwd(), option);
     if (!existsSync(source) || !statSync(source).isFile()) {
-      throw new Error(`Favicon n\u00e3o encontrado: ${source}`);
+      throw new Error(`Favicon nao encontrado: ${source}\nDica: verifique se o caminho esta correto e o arquivo existe.`);
     }
 
     const extension = extname(source).toLowerCase();
