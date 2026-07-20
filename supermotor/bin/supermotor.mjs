@@ -10,6 +10,9 @@ import { recordActivity } from "./lib/commands.mjs";
 import { registerExistingProject } from "./lib/commands.mjs";
 import { listProjectsCommand } from "./lib/commands.mjs";
 import { removeProjectCommand } from "./lib/commands.mjs";
+import { atividadesCommand } from "./lib/commands.mjs";
+import { agentesCommand } from "./lib/commands.mjs";
+import { statusCommand } from "./lib/commands.mjs";
 import { startDashboardDaemon } from "./lib/commands.mjs";
 import { stopDashboardDaemon } from "./lib/commands.mjs";
 import { dashboardDaemonStatus } from "./lib/commands.mjs";
@@ -26,10 +29,13 @@ Uso:
   supermotor criar crm "Nome do CRM"
   supermotor painel
   supermotor painel iniciar|parar|status
-  supermotor listar
-  supermotor remover <caminho>
+  supermotor listar [--verbose] [--json]
+  supermotor remover <caminho> [--deletar] [--forcar] [--dry-run]
   supermotor registrar [caminho]
   supermotor atividade [projeto] --agente "Nome" --status working --acao "O que esta fazendo"
+  supermotor atividades [projeto] [--limite 10]
+  supermotor agentes [projeto]
+  supermotor status [projeto]
   supermotor validar [caminho]
   supermotor doctor
 
@@ -43,9 +49,17 @@ Comandos:
   remover       Remove o registro de um projeto (ou deleta os arquivos)
   registrar     Registra um projeto existente para acompanhamento
   atividade     Registra uma atividade em um projeto
+  atividades    Mostra atividades recentes de um projeto
+  agentes       Mostra agentes trabalhando em um projeto
+  status        Mostra resumo do status de um projeto
   doctor        Diagnostico do ambiente e dependencias
 
 Opcoes:
+  --verbose     Mostra detalhes ao listar projetos (atividades, agentes, datas)
+  --json        Saida em formato JSON (para listar)
+  --forcar      Pula confirmacao ao remover
+  --dry-run     Mostra o que seria removido sem executar
+  --limite N    Numero de atividades a mostrar (padrao: 10)
   --brief "objetivo"       Define o objetivo do projeto
   --sucesso "resultado"    Define como medir o sucesso
   --essenciais "itens"     Define o que precisa funcionar primeiro
@@ -120,13 +134,28 @@ async function main() {
     return;
   }
 
+  if (["atividades", "activities", "historico", "history"].includes(command)) {
+    atividadesCommand(parsed);
+    return;
+  }
+
+  if (["agentes", "agents"].includes(command)) {
+    agentesCommand(parsed);
+    return;
+  }
+
+  if (["status", "estado", "resumo", "summary"].includes(command)) {
+    statusCommand(parsed);
+    return;
+  }
+
   if (["registrar", "register", "adicionar-projeto", "track"].includes(command)) {
     registerExistingProject(parsed);
     return;
   }
 
   if (["listar", "list", "projetos", "projects"].includes(command)) {
-    listProjectsCommand();
+    listProjectsCommand(parsed);
     return;
   }
 

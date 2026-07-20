@@ -1,11 +1,22 @@
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
+import { createInterface } from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
 import { join, relative, resolve } from "node:path";
 import { color, ui } from "./ui.mjs";
 import { ROOT, TEMPLATE_ROOT, TYPES } from "./constants.mjs";
 import { copyTemplate } from "./templates.mjs";
 import { commandExists } from "./templates.mjs";
-import { appendActivity, initializeProjectTracking, STATE_ROOT, listRegisteredProjects, unregisterProject } from "../supermotor-state.mjs";
+import {
+  appendActivity,
+  initializeProjectTracking,
+  STATE_ROOT,
+  listRegisteredProjects,
+  unregisterProject,
+  readActivities,
+  readAgents,
+  readProjectMetadata,
+} from "../supermotor-state.mjs";
 
 function recordActivity(parsed) {
   const requestedPath = parsed.positionals[1] || ".";
@@ -136,7 +147,7 @@ function stopDashboardDaemon() {
   const control = readDashboardControl();
   if (!control || !processIsAlive(control.pid)) {
     if (existsSync(controlPath)) unlinkSync(controlPath);
-    ui.warn("A Control Room n\u00e3o est\u00e1 ativa em segundo plano.");
+    ui.warn("A Control Room n\u00e1 est\u00e1 ativa em segundo plano.");
     return;
   }
   process.kill(Number(control.pid));
@@ -197,13 +208,47 @@ function doctor() {
   process.exitCode = healthy ? 0 : 1;
 }
 
-function listProjectsCommand() {
+function formatRelativeTime(isoString) {
+  if (!isoString) return "desconhecido";
+  const diff = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `${minutes}min atr\u00e1s`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h atr\u00e1s`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d atr\u00e1s`;
+  return `${Math.floor(days / 30)}m atr\u00e1s`;
+}
+
+function statusEmoji(status) {
+  return { planning: "\u{1F4CB}", working: "\u{1F527}", testing: "\u{1F9EA}", reviewing: "\u{1F50D}", blocked: "\u{1F6AB}", done: "\u{2705}", idle: "\u{1F4A4}" }[status] || "\u{2699}\u{FE0F}";
+}
+
+function listProjectsCommand(parsed) {
+  const verbose = parsed.options.verbose || parsed.options.v;
+  const jsonOutput = parsed.options.json;
+
   ui.title("SUPERMOTOR \u2014 projetos");
   const projects = listRegisteredProjects();
   if (!projects.length) {
     console.log("  Nenhum projeto registrado.\n");
     console.log("  Use: supermotor registrar <caminho> para registrar um projeto existente.");
     console.log("  Use: supermotor criar para criar um novo projeto.\n");
+    return;
+  }
+
+  if (jsonOutput) {
+    const data = projects.map((project) => ({
+      name: project.name,
+      type: project.type,
+      path: project.path,
+      brand: project.brand || undefined,
+      objective: project.objective || undefined,
+      createdAt: project.createdAt,
+      lastSeenAt: project.lastSeenAt,
+    }));
+    console.log(JSON.stringify(data, null, 2));
     return;
   }
 
@@ -217,10 +262,36 @@ function listProjectsCommand() {
     console.log(`  ${color(statusColor, typeLabel.padEnd(20))} ${project.name || "Sem nome"}`);
     console.log(`    ${color("2", `Caminho: ${project.path}`)}`);
     if (project.brand) console.log(`    ${color("2", `Marca: ${project.brand}`)}`);
+
+    if (verbose) {
+      const metadata = readProjectMetadata(project.path);
+      const agents = readAgents(project.path);
+      const activities = readActivities(project.path, 3);
+
+      if (metadata.objective) console.log(`    ${color("2", `Objetivo: ${metadata.objective}`)}`);
+      if (project.createdAt) console.log(`    ${color("2", `Criado: ${formatRelativeTime(project.createdAt)}`)}`);
+      if (project.lastSeenAt) console.log(`    ${color("2", `Visto: ${formatRelativeTime(project.lastSeenAt)}`)}`);
+
+      if (agents.length) {
+        console.log(`    ${color("2", "Agentes:")}`);
+        for (const agent of agents.slice(0, 3)) {
+          console.log(`      ${statusEmoji(agent.status)} ${agent.name}: ${agent.action || "idle"}`);
+        }
+      }
+
+      if (activities.length) {
+        console.log(`    ${color("2", "Atividade recente:")}`);
+        for (const act of activities.slice(0, 2)) {
+          console.log(`      ${color("2", `${act.agent}: ${act.action}`)}`);
+        }
+      }
+    }
+
     console.log();
   }
 
   console.log(`  ${color("2", `${projects.length} projeto(s) registrado(s).`)}`);
+  console.log(`  ${color("2", "Use --verbose para mais detalhes")}`);
   console.log(`  ${color("2", "Abra o painel para ver detalhes: supermotor painel")}\n`);
 }
 
@@ -242,16 +313,151 @@ async function removeProjectCommand(parsed) {
   }
 
   const shouldDelete = parsed.options.deletar || parsed.options.delete;
+  const force = parsed.options.forcar || parsed.options.force;
+  const dryRun = parsed.options["dry-run"];
+
+  const metadata = readProjectMetadata(project);
+  const projectName = metadata.name || project.split(/[\\/]/).pop();
+
+  if (dryRun) {
+    ui.info(`[DRY RUN] Projeto: ${projectName}`);
+    ui.info(`[DRY_RUN] Caminho: ${project}`);
+    if (shouldDelete) {
+      ui.info("[DRY_RUN] Acao: Deletar projeto e arquivos");
+    } else {
+      ui.info("[DRY_RUN] Acao: Remover registro do SUPERMOTOR");
+    }
+    return;
+  }
+
+  if (!force && input.isTTY) {
+    console.log();
+    console.log(`  Projeto: ${color("1;37", projectName)}`);
+    console.log(`  Caminho: ${color("2", project)}`);
+    if (shouldDelete) {
+      console.log(`  ${color("33", "ATENCAO: Todos os arquivos serao deletados!")}`);
+    } else {
+      console.log(`  Apenas o registro do SUPERMOTOR sera removido.`);
+    }
+    console.log();
+
+    const terminal = createInterface({ input, output });
+    try {
+      const answer = (await terminal.question("  Confirmar? [s/N]: ")).trim().toLowerCase();
+      if (!["s", "sim"].includes(answer)) {
+        console.log("  Operacao cancelada.\n");
+        return;
+      }
+    } finally {
+      terminal.close();
+    }
+  }
+
   if (shouldDelete) {
     rmSync(project, { recursive: true, force: true });
     unregisterProject(project);
-    ui.ok(`Projeto removido: ${project}`);
+    ui.ok(`Projeto deletado: ${projectName}`);
   } else {
     rmSync(trackingDir, { recursive: true, force: true });
     unregisterProject(project);
-    ui.ok(`Registro do SUPERMOTOR removido de: ${project}`);
+    ui.ok(`Registro do SUPERMOTOR removido de: ${projectName}`);
     ui.info("Os arquivos do projeto foram preservados.");
     ui.info("Para deletar os arquivos, use: supermotor remover <caminho> --deletar");
+  }
+}
+
+function atividadesCommand(parsed) {
+  const requestedPath = parsed.positionals[1] || ".";
+  const project = resolve(process.cwd(), requestedPath);
+
+  if (!existsSync(join(project, ".supermotor", "project.json"))) {
+    throw new Error(`Projeto SUPERMOTOR n\u00e3o encontrado em: ${project}`);
+  }
+
+  const limit = Number(parsed.options.limite || parsed.options.limit || 10);
+  const activities = readActivities(project, limit);
+
+  ui.title("SUPERMOTOR \u2014 atividades");
+  ui.info(`Projeto: ${project.split(/[\\/]/).pop()}`);
+
+  if (!activities.length) {
+    console.log("  Nenhuma atividade registrada.\n");
+    return;
+  }
+
+  for (const act of activities) {
+    const time = formatRelativeTime(act.timestamp);
+    console.log(`  ${statusEmoji(act.status)} ${color("1;37", act.agent)} ${color("2", `(${time})`)}`);
+    console.log(`    ${act.action}`);
+    if (act.detail) console.log(`    ${color("2", act.detail)}`);
+    console.log();
+  }
+}
+
+function agentesCommand(parsed) {
+  const requestedPath = parsed.positionals[1] || ".";
+  const project = resolve(process.cwd(), requestedPath);
+
+  if (!existsSync(join(project, ".supermotor", "project.json"))) {
+    throw new Error(`Projeto SUPERMOTOR n\u00e3o encontrado em: ${project}`);
+  }
+
+  const agents = readAgents(project);
+
+  ui.title("SUPERMOTOR \u2014 agentes");
+  ui.info(`Projeto: ${project.split(/[\\/]/).pop()}`);
+
+  if (!agents.length) {
+    console.log("  Nenhum agente registrado.\n");
+    return;
+  }
+
+  for (const agent of agents) {
+    const time = formatRelativeTime(agent.updatedAt);
+    console.log(`  ${statusEmoji(agent.status)} ${color("1;37", agent.name)} ${color("2", `[${agent.status}]`)}`);
+    if (agent.action) console.log(`    ${agent.action}`);
+    if (agent.detail) console.log(`    ${color("2", agent.detail)}`);
+    console.log(`    ${color("2", `Atualizado: ${time}`)}`);
+    console.log();
+  }
+}
+
+function statusCommand(parsed) {
+  const requestedPath = parsed.positionals[1] || ".";
+  const project = resolve(process.cwd(), requestedPath);
+
+  if (!existsSync(join(project, ".supermotor", "project.json"))) {
+    throw new Error(`Projeto SUPERMOTOR n\u00e3o encontrado em: ${project}`);
+  }
+
+  const metadata = readProjectMetadata(project);
+  const agents = readAgents(project);
+  const activities = readActivities(project, 5);
+
+  ui.title("SUPERMOTOR \u2014 status do projeto");
+
+  console.log(`  ${color("1;37", "Nome:")} ${metadata.name || "Sem nome"}`);
+  console.log(`  ${color("1;37", "Tipo:")} ${TYPES[metadata.projectType]?.label || metadata.projectType || "Desconhecido"}`);
+  console.log(`  ${color("1;37", "Marca:")} ${metadata.brand || "Sem marca"}`);
+  if (metadata.objective) console.log(`  ${color("1;37", "Objetivo:")} ${metadata.objective}`);
+  if (metadata.createdAt) console.log(`  ${color("1;37", "Criado:")} ${formatRelativeTime(metadata.createdAt)}`);
+  console.log();
+
+  if (agents.length) {
+    console.log(`  ${color("1;37", "Agentes ativos:")}`);
+    for (const agent of agents) {
+      console.log(`    ${statusEmoji(agent.status)} ${agent.name}: ${agent.action || "idle"}`);
+    }
+    console.log();
+  }
+
+  if (activities.length) {
+    console.log(`  ${color("1;37", "Atividade recente:")}`);
+    for (const act of activities.slice(0, 5)) {
+      const time = formatRelativeTime(act.timestamp);
+      console.log(`    ${statusEmoji(act.status)} ${act.agent}: ${act.action} ${color("2", `(${time})`)}`);
+    }
+    console.log();
   }
 }
 
@@ -264,4 +470,7 @@ export {
   doctor,
   listProjectsCommand,
   removeProjectCommand,
+  atividadesCommand,
+  agentesCommand,
+  statusCommand,
 };
