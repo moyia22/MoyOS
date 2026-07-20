@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { dirname, extname, join, relative, resolve } from "node:path";
@@ -10,6 +10,179 @@ import { normalizeHexColor, validateFaviconInput, createFavicon, createCrmFavico
 import { replaceTokens, replaceTokensInFile, projectTokens, collectFiles } from "./tokens.mjs";
 import { copyTemplate, npmInstall, commandExists, runGit } from "./templates.mjs";
 import { initializeProjectTracking } from "../supermotor-state.mjs";
+
+async function createProjectFromAnswers(type, answers, slug, destination, options = {}) {
+  if (type === "crm") {
+    const repository = resolve(options.repository || WACRM_REPOSITORY);
+    const sourceRef = String(options.sourceRef || WACRM_STABLE_REF).trim();
+
+    if (!commandExists("git")) {
+      throw new Error("Git e obrigatorio para criar um CRM a partir do wacrm.");
+    }
+    const crmTemplate = join(TEMPLATE_ROOT, TYPES.crm.template);
+    if (!existsSync(crmTemplate)) {
+      throw new Error("Template de integracao do wacrm ausente. Rode o diagnostico.");
+    }
+
+    ui.title(`Criando ${TYPES.crm.label}`);
+    ui.info(`Base oficial: ${repository} (${sourceRef})`);
+    ui.info(`Destino: ${destination}`);
+
+    const clone = runGit(["clone", "--depth", "1", "--branch", sourceRef, repository, destination], {
+      cwd: process.cwd(),
+      stdio: "inherit",
+    });
+    if (clone.status !== 0) {
+      throw new Error(`Nao foi possivel clonar a base do wacrm${clone.error ? `: ${clone.error.message}` : "."}`);
+    }
+
+    copyTemplate(crmTemplate, destination);
+    copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(destination, ".supermotor"));
+    const tokens = projectTokens("crm", answers, slug, {
+      CRM_REPOSITORY: repository,
+      CRM_REF: sourceRef,
+    });
+    replaceTokens(join(destination, ".supermotor"), tokens);
+    replaceTokensInFile(join(destination, "SUPERMOTOR.md"), tokens);
+
+    const faviconSource = createCrmFavicon(destination, answers.favicon, answers.brandName, answers.accent);
+    replaceTokens(join(destination, ".supermotor"), { FAVICON_SOURCE: faviconSource });
+    initializeProjectTracking(destination, {
+      projectType: "crm",
+      name: answers.name.trim(),
+      objective: answers.brief.trim(),
+      success: answers.success.trim(),
+      essentials: answers.essentials.trim(),
+      constraints: answers.constraints.trim(),
+      brand: answers.brandName.trim(),
+      source: repository,
+      sourceRef,
+      upstream: WACRM_REPOSITORY,
+      license: "MIT",
+      motorVersion: "3.0.0",
+    });
+
+    ui.ok("wacrm clonado e contexto SUPERMOTOR aplicado");
+    ui.ok(`Favicon: ${faviconSource}`);
+
+    const displayPath = relative(process.cwd(), destination) || destination;
+    console.log("\nProximos passos:\n");
+    console.log(`  cd "${displayPath}"`);
+    console.log("  Leia SUPERMOTOR.md e siga a preparacao.");
+    console.log("  1. Crie uma conta gratis em supabase.com");
+    console.log("  2. Configure o projeto Supabase e rode as migracoes");
+    console.log("  3. Configure o Meta WhatsApp Business API");
+    console.log("  4. Preencha .env.local com as credenciais");
+    console.log("  5. npm install && npm run dev");
+    console.log("\nDepois, peca a IA:");
+    console.log('  "Leia AGENTS.md, SUPERMOTOR.md, .supermotor/CONVERSATION.md e .supermotor/SUPERPROMPT.md. Registre seu andamento, configure o Supabase, execute o CRM e adapte-o ao meu negocio."');
+    console.log(`\n${color("32", "CRM criado com sucesso:")} ${destination}\n`);
+    return;
+  }
+
+  const commonTemplate = join(TEMPLATE_ROOT, "common");
+  const typeTemplate = join(TEMPLATE_ROOT, TYPES[type].template);
+  if (!existsSync(commonTemplate) || !existsSync(typeTemplate)) {
+    throw new Error(`Template incompleto para ${type}. Rode o diagnostico.`);
+  }
+
+  ui.title(`Criando ${TYPES[type].label}`);
+  ui.info(`Destino: ${destination}`);
+  mkdirSync(destination, { recursive: true });
+  copyTemplate(commonTemplate, destination);
+  copyTemplate(typeTemplate, destination);
+  copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(destination, ".supermotor"));
+
+  replaceTokens(destination, projectTokens(type, answers, slug));
+
+  const faviconSource = createFavicon(destination, answers.favicon, answers.brandName, answers.accent);
+  replaceTokens(destination, { FAVICON_SOURCE: faviconSource });
+  initializeProjectTracking(destination, {
+    projectType: type,
+    name: answers.name.trim(),
+    objective: answers.brief.trim(),
+    success: answers.success.trim(),
+    essentials: answers.essentials.trim(),
+    constraints: answers.constraints.trim(),
+    brand: answers.brandName.trim(),
+    motorVersion: "3.0.0",
+  });
+
+  ui.ok("Starter e contexto de IA criados");
+  ui.ok(`Favicon: ${faviconSource}`);
+
+  if (options.injectContext) {
+    const contextDir = join(process.cwd(), "_contexto");
+    if (existsSync(contextDir)) {
+      const projectContextDir = join(destination, "_contexto");
+      mkdirSync(projectContextDir, { recursive: true });
+      for (const file of readdirSync(contextDir)) {
+        if (file.startsWith(".")) continue;
+        const src = join(contextDir, file);
+        if (statSync(src).isFile()) {
+          writeFileSync(join(projectContextDir, file), readFileSync(src, "utf8"), "utf8");
+        }
+      }
+      ui.ok("Contexto do onboarding injetado no projeto");
+    }
+  }
+
+  const skipInstall = Boolean(options.skipInstall);
+  if (!skipInstall) npmInstall(destination);
+
+  const displayPath = relative(process.cwd(), destination) || destination;
+  console.log("\nProximos passos:\n");
+  console.log(`  cd "${displayPath}"`);
+  if (skipInstall) console.log("  npm install");
+  console.log("  npm run dev");
+  console.log("\nDepois, peca a IA:");
+  console.log('  "Leia SUPERPROMPT.md, PRODUCT.md, CONVERSATION.md, BRAND.md, DESIGN.md e QUALITY.md. Registre seu andamento e execute o projeto ate passar em todos os criterios."');
+  console.log(`\n${color("32", "Projeto criado com sucesso:")} ${destination}\n`);
+}
+
+function readOnboardingContext() {
+  const contextDir = join(process.cwd(), "_contexto");
+  if (!existsSync(contextDir)) return null;
+  const onboardingPath = join(contextDir, "onboarding.md");
+  if (!existsSync(onboardingPath)) return null;
+  try {
+    return readFileSync(onboardingPath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function parseOnboardingContext(text) {
+  const data = {};
+  const extract = (pattern) => {
+    const match = text.match(pattern);
+    return match ? match[1].trim() : "";
+  };
+  data.userName = extract(/\*\*Nome:\*\*\s*(.+)/);
+  data.userEmail = extract(/\*\*Email:\*\*\s*(.+)/);
+  data.userPhone = extract(/\*\*WhatsApp:\*\*\s*(.+)/);
+  data.userInstagram = extract(/\*\*Instagram:\*\*\s*(.+)/);
+  data.userLocation = extract(/\*\*Localizacao:\*\*\s*(.+)/);
+  data.businessName = extract(/\*\*Nome do negocio:\*\*\s*(.+)/);
+  data.businessIndustry = extract(/\*\*Area\/Industria:\*\*\s*(.+)/);
+  data.businessDescription = extract(/\*\*Descricao:\*\*\s*(.+)/);
+  data.targetAudience = extract(/\*\*Publico principal:\*\*\s*(.+)/);
+  data.mainGoal = extract(/\*\*Objetivo principal:\*\*\s*(.+)/);
+  data.projectType = extract(/\*\*Tipo de projeto:\*\*\s*(.+)/);
+  data.projectName = extract(/\*\*Nome do projeto:\*\*\s*(.+)/);
+  data.projectObjective = extract(/\*\*Objetivo do projeto:\*\*\s*(.+)/);
+  data.projectFeatures = extract(/\*\*Funcionalidades essenciais:\*\*\s*(.+)/);
+  data.brandName = extract(/\*\*Nome da marca:\*\*\s*(.+)/);
+  data.brandTone = extract(/\*\*Tom de voz:\*\*\s*(.+)/);
+  data.brandAccent = extract(/\*\*Cor de destaque:\*\*\s*(.+)/);
+  data.differentiator = extract(/\*\*Diferencial competitivo:\*\*\s*(.+)/);
+  data.successMetric = extract(/\*\*Metrica de sucesso:\*\*\s*(.+)/);
+  data.projectConstraints = extract(/\*\*Restricoes tecnicas:\*\*\s*(.+)/);
+  data.projectPages = extract(/\*\*Paginas\/secoes necessarias:\*\*\s*(.+)/);
+  data.projectReferences = extract(/\*\*Referencias\/inspiracoes:\*\*\s*(.+)/);
+  data.projectIntegrations = extract(/\*\*Integracoes necessarias:\*\*\s*(.+)/);
+  return data;
+}
 
 async function promptForMissing(type, name, brief, options = {}) {
   if (!input.isTTY) {
@@ -92,21 +265,57 @@ async function createProject(parsed) {
   const rawName = parsed.positionals.slice(2).join(" ");
   const initialType = normalizeType(rawType);
   const briefOption = parsed.options.brief || parsed.options.objetivo || "";
+
+  const onboardingData = readOnboardingContext();
+  if (onboardingData && !initialType && !rawName) {
+    console.log();
+    ui.info("Contexto de onboarding detectado em _contexto/onboarding.md");
+    const parsed2 = parseOnboardingContext(onboardingData);
+    if (parsed2.projectName) ui.info(`Projeto: ${parsed2.projectName}`);
+    if (parsed2.businessName) ui.info(`Negocio: ${parsed2.businessName}`);
+    if (parsed2.projectType && parsed2.projectType !== "Nao definido") ui.info(`Tipo: ${parsed2.projectType}`);
+    console.log();
+    const terminal = createInterface({ input, output });
+    try {
+      const use = (await terminal.question("Usar dados do onboarding? [S/n]: ")).trim().toLowerCase();
+      if (!["n", "nao"].includes(use)) {
+        const resolvedType = normalizeType(parsed2.projectType) || "site";
+        const answers = {
+          name: parsed2.projectName || parsed2.businessName || "",
+          brief: parsed2.projectObjective || parsed2.mainGoal || "Criar uma experiencia digital memoravel, clara e orientada a resultado.",
+          success: parsed2.successMetric || "O fluxo principal funciona de ponta a ponta, com clareza, qualidade e validacao real.",
+          essentials: parsed2.projectFeatures || "Experiencia principal completa, estados de erro e vazio, responsividade e acessibilidade.",
+          constraints: parsed2.projectConstraints || "Preservar seguranca, desempenho, identidade da marca e compatibilidade mobile.",
+          brandName: parsed2.brandName || parsed2.businessName || parsed2.projectName || "",
+          audience: parsed2.targetAudience || DEFAULT_BRAND.audience,
+          tone: parsed2.brandTone || DEFAULT_BRAND.tone,
+          accent: normalizeHexColor(parsed2.brandAccent || DEFAULT_BRAND.accent),
+          favicon: "auto",
+        };
+        const slug = slugify(answers.name);
+        const destination = parsed.options.saida ? resolve(process.cwd(), String(parsed.options.saida)) : join(DEFAULT_OUTPUT, slug);
+        if (existsSync(destination)) throw new Error(`O destino ja existe: ${destination}`);
+        await createProjectFromAnswers(resolvedType, answers, slug, destination, {
+          injectContext: true,
+          skipInstall: Boolean(parsed.options["sem-instalar"] || parsed.options["skip-install"]),
+          repository: parsed.options["crm-repo"],
+          sourceRef: parsed.options["crm-ref"],
+        });
+        return;
+      }
+    } finally {
+      terminal.close();
+    }
+  }
+
   const answers = await promptForMissing(initialType, rawName, briefOption, parsed.options);
   const type = normalizeType(answers.type);
 
-  if (!type) {
-    throw new Error("Tipo inv\u00e1lido. Use site, app, carrossel ou crm.");
-  }
-
-  if (!answers.name?.trim()) {
-    throw new Error("Informe um nome para o projeto.");
-  }
+  if (!type) throw new Error("Tipo invalido. Use site, app, carrossel ou crm.");
+  if (!answers.name?.trim()) throw new Error("Informe um nome para o projeto.");
 
   const slug = slugify(answers.name);
-  if (!slug) {
-    throw new Error("O nome precisa conter letras ou n\u00fameros.");
-  }
+  if (!slug) throw new Error("O nome precisa conter letras ou numeros.");
 
   validateFaviconInput(answers.favicon);
 
@@ -115,120 +324,13 @@ async function createProject(parsed) {
     ? resolve(process.cwd(), String(explicitOutput))
     : join(DEFAULT_OUTPUT, slug);
 
-  if (existsSync(destination)) {
-    throw new Error(`O destino j\u00e1 existe: ${destination}`);
-  }
+  if (existsSync(destination)) throw new Error(`O destino ja existe: ${destination}`);
 
-  if (type === "crm") {
-    if (!commandExists("git")) {
-      throw new Error("Git \u00e9 obrigat\u00f3rio para criar um CRM a partir do wacrm.");
-    }
-
-    const repository = resolve(parsed.options["crm-repo"] || parsed.options["repositorio-crm"] || WACRM_REPOSITORY);
-    const sourceRef = String(parsed.options["crm-ref"] || parsed.options["versao-crm"] || WACRM_STABLE_REF).trim();
-    const crmTemplate = join(TEMPLATE_ROOT, TYPES.crm.template);
-    if (!existsSync(crmTemplate)) {
-      throw new Error("Template de integra\u00e7\u00e3o do wacrm ausente. Rode o diagn\u00f3stico.");
-    }
-
-    ui.title(`Criando ${TYPES.crm.label}`);
-    ui.info(`Base oficial: ${repository} (${sourceRef})`);
-    ui.info(`Destino: ${destination}`);
-
-    const clone = runGit(["clone", "--depth", "1", "--branch", sourceRef, repository, destination], {
-      cwd: process.cwd(),
-      stdio: "inherit",
-    });
-    if (clone.status !== 0) {
-      throw new Error(`N\u00e3o foi poss\u00edvel clonar a base do wacrm${clone.error ? `: ${clone.error.message}` : "."}`);
-    }
-
-    copyTemplate(crmTemplate, destination);
-    copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(destination, ".supermotor"));
-    const tokens = projectTokens("crm", answers, slug, {
-      CRM_REPOSITORY: repository,
-      CRM_REF: sourceRef,
-    });
-    replaceTokens(join(destination, ".supermotor"), tokens);
-    replaceTokensInFile(join(destination, "SUPERMOTOR.md"), tokens);
-
-    const faviconSource = createCrmFavicon(destination, answers.favicon, answers.brandName, answers.accent);
-    replaceTokens(join(destination, ".supermotor"), { FAVICON_SOURCE: faviconSource });
-    initializeProjectTracking(destination, {
-      projectType: "crm",
-      name: answers.name.trim(),
-      objective: answers.brief.trim(),
-      success: answers.success.trim(),
-      essentials: answers.essentials.trim(),
-      constraints: answers.constraints.trim(),
-      brand: answers.brandName.trim(),
-      source: repository,
-      sourceRef,
-      upstream: WACRM_REPOSITORY,
-      license: "MIT",
-      motorVersion: "3.0.0",
-    });
-
-    ui.ok("wacrm clonado e contexto SUPERMOTOR aplicado");
-    ui.ok(`Favicon: ${faviconSource}`);
-
-    const displayPath = relative(process.cwd(), destination) || destination;
-    console.log("\nPronto. Pr\u00f3ximos passos:\n");
-    console.log(`  cd "${displayPath}"`);
-    console.log("  Leia SUPERMOTOR.md e siga a prepara\u00e7\u00e3o.");
-    console.log("  1. Crie uma conta gr\u00e1tis em supabase.com");
-    console.log("  2. Configure o projeto Supabase e rode as migra\u00e7\u00f5es");
-    console.log("  3. Configure o Meta WhatsApp Business API");
-    console.log("  4. Preencha .env.local com as credenciais");
-    console.log("  5. npm install && npm run dev");
-    console.log("\nDepois, pe\u00e7a \u00e0 IA:");
-    console.log('  "Leia AGENTS.md, SUPERMOTOR.md, .supermotor/CONVERSATION.md e .supermotor/SUPERPROMPT.md. Registre seu andamento, configure o Supabase, execute o CRM e adapte-o ao meu neg\u00f3cio."');
-    console.log(`\n${color("32", "CRM criado com sucesso:")} ${destination}\n`);
-    return;
-  }
-
-  const commonTemplate = join(TEMPLATE_ROOT, "common");
-  const typeTemplate = join(TEMPLATE_ROOT, TYPES[type].template);
-  if (!existsSync(commonTemplate) || !existsSync(typeTemplate)) {
-    throw new Error(`Template incompleto para ${type}. Rode o diagn\u00f3stico.`);
-  }
-
-  ui.title(`Criando ${TYPES[type].label}`);
-  ui.info(`Destino: ${destination}`);
-  mkdirSync(destination, { recursive: true });
-  copyTemplate(commonTemplate, destination);
-  copyTemplate(typeTemplate, destination);
-  copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(destination, ".supermotor"));
-
-  replaceTokens(destination, projectTokens(type, answers, slug));
-
-  const faviconSource = createFavicon(destination, answers.favicon, answers.brandName, answers.accent);
-  replaceTokens(destination, { FAVICON_SOURCE: faviconSource });
-  initializeProjectTracking(destination, {
-    projectType: type,
-    name: answers.name.trim(),
-    objective: answers.brief.trim(),
-    success: answers.success.trim(),
-    essentials: answers.essentials.trim(),
-    constraints: answers.constraints.trim(),
-    brand: answers.brandName.trim(),
-    motorVersion: "3.0.0",
+  await createProjectFromAnswers(type, answers, slug, destination, {
+    skipInstall: Boolean(parsed.options["sem-instalar"] || parsed.options["skip-install"]),
+    repository: parsed.options["crm-repo"],
+    sourceRef: parsed.options["crm-ref"],
   });
-
-  ui.ok("Starter e contexto de IA criados");
-  ui.ok(`Favicon: ${faviconSource}`);
-
-  const skipInstall = Boolean(parsed.options["sem-instalar"] || parsed.options["skip-install"]);
-  if (!skipInstall) npmInstall(destination);
-
-  const displayPath = relative(process.cwd(), destination) || destination;
-  console.log("\nPronto. Pr\u00f3ximos passos:\n");
-  console.log(`  cd "${displayPath}"`);
-  if (skipInstall) console.log("  npm install");
-  console.log("  npm run dev");
-  console.log("\nDepois, pe\u00e7a \u00e0 IA:");
-  console.log('  "Leia SUPERPROMPT.md, PRODUCT.md, CONVERSATION.md, BRAND.md, DESIGN.md e QUALITY.md. Registre seu andamento e execute o projeto at\u00e9 passar em todos os crit\u00e9rios."');
-  console.log(`\n${color("32", "Projeto criado com sucesso:")} ${destination}\n`);
 }
 
 async function validateProject(parsed) {
@@ -400,4 +502,4 @@ async function validateCrmProject(project, parsed) {
   console.log("\nCRM aprovado pelo SUPERMOTOR.\n");
 }
 
-export { createProject, validateProject, validateCrmProject, promptForMissing };
+export { createProject, createProjectFromAnswers, readOnboardingContext, parseOnboardingContext, validateProject, validateCrmProject, promptForMissing };
