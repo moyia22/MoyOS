@@ -30,6 +30,9 @@
           <span>Projetos</span>
           <span class="count-badge" id="project-count">0</span>
         </div>
+        <div class="search-wrapper">
+          <input class="project-search" id="project-search" type="search" placeholder="Filtrar projetos… (Ctrl+K)" aria-label="Filtrar projetos" />
+        </div>
         <nav class="project-list" id="project-list" aria-label="Lista de projetos"></nav>
 
         <div class="sidebar-help">
@@ -60,7 +63,26 @@
         </section>
 
         <div id="dashboard-content" hidden>
+          <div class="quick-actions" id="quick-actions">
+            <button class="action-chip" id="action-copy-prompt" type="button" title="Copiar prompt (Ctrl+C)">
+              <span aria-hidden="true">📋</span> Copiar prompt
+            </button>
+            <button class="action-chip" id="action-open-code" type="button" title="Abrir no VS Code">
+              <span aria-hidden="true">💻</span> Abrir no editor
+            </button>
+            <button class="action-chip" id="action-open-folder" type="button" title="Abrir pasta no explorador">
+              <span aria-hidden="true">📁</span> Abrir pasta
+            </button>
+            <button class="action-chip" id="action-copy-path" type="button" title="Copiar caminho do projeto">
+              <span aria-hidden="true">🔗</span> Copiar caminho
+            </button>
+          </div>
           <section class="metrics-grid" aria-label="Resumo do projeto">
+            <article class="metric-card health">
+              <span>Saúde do projeto</span>
+              <strong class="tabular" id="metric-health">—</strong>
+              <div class="health-bar" id="health-bar" aria-hidden="true"><span></span></div>
+            </article>
             <article class="metric-card">
               <span>Progresso estimado</span>
               <strong class="tabular" id="metric-progress">0%</strong>
@@ -74,7 +96,7 @@
             <article class="metric-card">
               <span>Arquivos recentes</span>
               <strong class="tabular" id="metric-files">0</strong>
-              <small>Monitorados localmente</small>
+              <small id="metric-files-size">Monitorados</small>
             </article>
             <article class="metric-card">
               <span>Última atualização</span>
@@ -100,6 +122,11 @@
                 <div>
                   <span class="eyebrow">HISTÓRICO</span>
                   <h2 id="activity-title">O que está acontecendo</h2>
+                </div>
+                <div class="activity-filters">
+                  <button class="filter-pill active" data-filter="all" type="button">Todos</button>
+                  <button class="filter-pill" data-filter="agents" type="button">Agentes</button>
+                  <button class="filter-pill" data-filter="manual" type="button">Manual</button>
                 </div>
               </div>
               <ol class="timeline" id="activity-list"></ol>
