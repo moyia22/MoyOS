@@ -1274,6 +1274,8 @@ function doctor() {
   process.exitCode = healthy ? 0 : 1;
 }
 
+const BRAND_SKILLS_ROOT = join(SKILLS_ROOT, "awesome-design-md", "design-md");
+
 function onboardingProgress(current, total) {
   const filled = Math.round((current / total) * 20);
   const bar = "\u2588".repeat(filled) + "\u2591".repeat(20 - filled);
@@ -1319,6 +1321,233 @@ function onboardingPhase(num, title, total) {
   console.log(color("1;38;5;208", `  === Fase ${num}/${total}: ${title} ===`));
   console.log();
   onboardingProgress(num, total);
+}
+
+function colorBlock(hex, label) {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return `  ${hex || "????"}  ${label}`;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `\u001b[48;2;${r};${g};${b}m        \u001b[0m  ${color("37", hex)}  ${label}`;
+}
+
+function colorSwatch(palette) {
+  if (!palette) return;
+  console.log();
+  console.log(color("37", "  Paleta de cores sugerida:"));
+  console.log(`    ${colorBlock(palette.Primary || palette.Accent || "#2563EB", "Primaria")}`);
+  console.log(`    ${colorBlock(palette.Secondary || palette.Background || "#3B82F6", "Secundaria")}`);
+  console.log(`    ${colorBlock(palette.Accent || "#EA580C", "Destaque (CTA)")}`);
+  console.log(`    ${colorBlock(palette.Background || "#F8FAFC", "Fundo")}`);
+  console.log(`    ${colorBlock(palette.Foreground || "#1E293B", "Texto")}`);
+  console.log();
+}
+
+function findBrandReferences(industry, productType, tone) {
+  if (!existsSync(BRAND_SKILLS_ROOT)) return [];
+  const searchText = [industry, productType, tone].filter(Boolean).join(" ").toLowerCase();
+  const brands = [];
+
+  const brandMap = {
+    saas: ["linear", "notion", "vercel", "resend", "cal"],
+    microsaas: ["raycast", "lovable", "resend"],
+    "e-commerce": ["nike", "shopify", "airbnb", "starbucks"],
+    "luxury ecommerce": ["nike", "ferrari", "lamborghini"],
+    "b2b service": ["stripe", "intercom", "zapier"],
+    fintech: ["stripe", "wise", "coinbase", "revolut"],
+    crypto: ["coinbase", "binance", "kraken"],
+    creative: ["figma", "framer", "spotify", "webflow"],
+    developer: ["cursor", "vercel", "supabase", "warp"],
+    healthcare: ["notion", "stripe"],
+    education: ["notion", "spotify", "mintlify"],
+    media: ["spotify", "pinterest", "theverge", "wired"],
+    automotive: ["tesla", "bmw", "ferrari"],
+    enterprise: ["ibm", "hashicorp", "sentry"],
+    social: ["pinterest", "airbnb", "figma"],
+  };
+
+  for (const [key, refs] of Object.entries(brandMap)) {
+    if (searchText.includes(key) || key.split(" ").every((w) => searchText.includes(w))) {
+      brands.push(...refs);
+      break;
+    }
+  }
+
+  if (!brands.length) {
+    if (/saas|app|sistema|dashboard|cloud/.test(searchText)) brands.push("linear", "notion", "vercel");
+    else if (/loja|produt|vend|shop/.test(searchText)) brands.push("shopify", "nike", "airbnb");
+    else if (/consult|servic|agenc|profission/.test(searchText)) brands.push("stripe", "intercom", "cal");
+    else if (/design|criativ|fotogr|art/.test(searchText)) brands.push("figma", "framer", "spotify");
+    else if (/tech|dev|code|software/.test(searchText)) brands.push("cursor", "vercel", "supabase");
+    else brands.push("notion", "stripe", "vercel");
+  }
+
+  const unique = [...new Set(brands)].slice(0, 4);
+  return unique.filter((name) => existsSync(join(BRAND_SKILLS_ROOT, name, "DESIGN.md"))).map((name) => {
+    const content = readFileSync(join(BRAND_SKILLS_ROOT, name, "DESIGN.md"), "utf8").slice(0, 3000);
+    const descMatch = content.match(/description:\s*(.+)/i);
+    const colorMatch = content.match(/primary:\s*["']?(#[0-9a-f]{6})["']?/i);
+    return { name, description: descMatch?.[1]?.trim() || "", primaryColor: colorMatch?.[1] || "" };
+  });
+}
+
+function generateSuggestions(data) {
+  const suggestions = [];
+
+  if (data.projectType === "site" || data.projectType === "carousel") {
+    if (data.mainGoal) {
+      if (/vend|convert|compr|lead/.test(data.mainGoal.toLowerCase())) {
+        suggestions.push({ type: "conteudo", text: "CTA de conversao acima da dobra (hero) com linguagem orientada a acao" });
+        suggestions.push({ type: "conteudo", text: "Prova social visivel: depoimentos, logos de clientes, numeros de resultados" });
+      }
+      if (/marc|brand|conhec/.test(data.mainGoal.toLowerCase())) {
+        suggestions.push({ type: "conteudo", text: "Secao de historia/missao que conecta emocionalmente com o visitante" });
+        suggestions.push({ type: "conteudo", text: "Galeria de trabalhos ou portfolio com imagens de alta qualidade" });
+      }
+    }
+    if (data.targetAudience) {
+      if (/empres|b2b|corporat/.test(data.targetAudience.toLowerCase())) {
+        suggestions.push({ type: "estrategia", text: "Linguagem formal e focada em ROI, cases de sucesso e numeros" });
+      } else if (/jov|teen|gen\s*z|social/.test(data.targetAudience.toLowerCase())) {
+        suggestions.push({ type: "estrategia", text: "Visual moderno, linguagem informal, integracao com redes sociais" });
+      }
+    }
+  }
+
+  if (data.projectType === "app") {
+    suggestions.push({ type: "tecnico", text: "Defina roles de usuario e fluxos criticos antes de criar telas" });
+    suggestions.push({ type: "tecnico", text: "Modele entidades e estados com Zod antes de implementar forms" });
+    if (data.projectIntegrations && /supabase/i.test(data.projectIntegrations)) {
+      suggestions.push({ type: "tecnico", text: "Configure RLS (Row Level Security) desde o inicio para seguranca" });
+    }
+  }
+
+  if (data.projectType === "crm") {
+    suggestions.push({ type: "integracao", text: "Configure o Meta WhatsApp Business API antes de usar o CRM" });
+    suggestions.push({ type: "integracao", text: "Crie templates de mensagem para automacoes no-code" });
+  }
+
+  if (data.needsSEO === "Sim") {
+    suggestions.push({ type: "seo", text: "Defina 5-10 palavras-chave principais baseadas no publico e objetivo" });
+    suggestions.push({ type: "seo", text: "Configure meta tags (title, description, og:image) em cada pagina" });
+    suggestions.push({ type: "seo", text: "Adicione schema.org/JSON-LD para dados estruturados (LocalBusiness, Product)" });
+  }
+
+  if (data.activeSocialMedia) {
+    suggestions.push({ type: "marketing", text: "Integre botoes de compartilhamento e feeds de redes sociais no site" });
+  }
+
+  if (data.whatsappBusiness && data.whatsappBusiness.toLowerCase() === "sim") {
+    suggestions.push({ type: "integracao", text: "Adicione botao flutuante de WhatsApp com mensagem pre-definida" });
+  }
+
+  if (data.competitors) {
+    suggestions.push({ type: "estrategia", text: "Analise os sites dos concorrentes: o que funciona e o que falta" });
+    suggestions.push({ type: "diferencial", text: `Seu diferencial e: ${data.differentiator || "destaque-o na homepage"}` });
+  }
+
+  if (!data.hasWebsite || data.hasWebsite.toLowerCase() === "nao") {
+    suggestions.push({ type: "seo", text: "Registre um dominio profissional (.com.br ou .com) antes de lancar" });
+  }
+
+  suggestions.push({ type: "qualidade", text: "Teste em 3 tamanhos: mobile (375px), tablet (768px), desktop (1440px)" });
+  suggestions.push({ type: "qualidade", text: "Garanta contraste WCAG AA (4.5:1) em todo texto sobre fundo" });
+
+  return suggestions;
+}
+
+function generateSuggestionsMarkdown(suggestions, data) {
+  const lines = [];
+  lines.push("# Sugestoes Inteligentes");
+  lines.push(`> Geradas pelo SUPERMOTOR 3.0 baseadas nas suas respostas\n`);
+
+  const grouped = {};
+  for (const s of suggestions) {
+    if (!grouped[s.type]) grouped[s.type] = [];
+    grouped[s.type].push(s.text);
+  }
+
+  const typeLabels = {
+    conteudo: "Conteudo e Copy",
+    estrategia: "Estrategia",
+    tecnico: "Tecnico",
+    integracao: "Integracao",
+    seo: "SEO e Visibilidade",
+    marketing: "Marketing",
+    diferencial: "Diferencial",
+    qualidade: "Qualidade",
+  };
+
+  for (const [type, items] of Object.entries(grouped)) {
+    lines.push(`## ${typeLabels[type] || type}\n`);
+    for (const item of items) {
+      lines.push(`- ${item}`);
+    }
+    lines.push("");
+  }
+
+  lines.push("---");
+  lines.push("> Estas sugestoes sao automaticas. Discuta com a IA qual priorizar.\n");
+  return lines.join("\n");
+}
+
+function generateProjectContextFromOnboarding(data, recs) {
+  const lines = [];
+  lines.push(`# Contexto do Onboarding — ${data.projectName || data.businessName}`);
+  lines.push("> Dados coletados pelo SUPERMOTOR 3.0 durante o onboarding interativo.\n");
+
+  lines.push("## Resumo Rapido\n");
+  lines.push(`- **Negocio:** ${data.businessName || "—"} (${data.businessIndustry || "—"})`);
+  lines.push(`- **Projeto:** ${data.projectName || "—"} — ${data.projectType || "—"}`);
+  lines.push(`- **Marca:** ${data.brandName || "—"} | Tom: ${data.brandTone || "—"} | Cor: ${data.brandAccent || "—"}`);
+  lines.push(`- **Publico:** ${data.targetAudience || "—"}`);
+  lines.push(`- **Objetivo:** ${data.projectObjective || data.mainGoal || "—"}`);
+  lines.push(`- **Sucesso:** ${data.successMetric || "—"}`);
+  lines.push("");
+
+  lines.push("## Sobre o Negocio\n");
+  lines.push(`- **Nome:** ${data.businessName || "—"}`);
+  lines.push(`- **Area:** ${data.businessIndustry || "—"}`);
+  lines.push(`- **Descricao:** ${data.businessDescription || "—"}`);
+  lines.push(`- **Porte:** ${data.businessSize || "—"}`);
+  lines.push(`- **Localizacao:** ${data.businessLocation || "—"}`);
+  lines.push(`- **Tempo de mercado:** ${data.businessAge || "—"}`);
+  lines.push("");
+
+  lines.push("## Publico-Alvo\n");
+  lines.push(`- **Cliente ideal:** ${data.targetAudience || "—"}`);
+  lines.push(`- **Idade:** ${data.audienceAge || "—"}`);
+  lines.push(`- **Genero:** ${data.audienceGender || "—"}`);
+  lines.push(`- **Renda:** ${data.audienceClass || "—"}`);
+  lines.push(`- **Dores:** ${data.audiencePains || "—"}`);
+  lines.push(`- **Onde esta:** ${data.audienceWhere || "—"}`);
+  lines.push("");
+
+  lines.push("## Modelo de Negocio\n");
+  lines.push(`- **Como fatura:** ${data.revenueModel || "—"}`);
+  lines.push(`- **Produtos:** ${data.mainProducts || "—"}`);
+  lines.push(`- **Preco:** ${data.priceRange || "—"}`);
+  lines.push(`- **Ticket medio:** ${data.averageTicket || "—"}`);
+  lines.push(`- **Concorrentes:** ${data.competitors || "—"}`);
+  lines.push(`- **Diferencial:** ${data.differentiator || "—"}`);
+  lines.push("");
+
+  if (data.projectFeatures) {
+    lines.push("## Funcionalidades Essenciais\n");
+    lines.push(data.projectFeatures.split(",").map((f) => `- ${f.trim()}`).join("\n"));
+    lines.push("");
+  }
+
+  if (data.projectPages) {
+    lines.push("## Paginas/Secoes\n");
+    lines.push(data.projectPages.split(",").map((p) => `- ${p.trim()}`).join("\n"));
+    lines.push("");
+  }
+
+  lines.push("---\n");
+  lines.push("> Leia este arquivo junto com PRODUCT.md, BRAND.md e DESIGN.md para ter o contexto completo do projeto.\n");
+
+  return lines.join("\n");
 }
 
 function generateOnboardingContext(data) {
@@ -1437,129 +1666,145 @@ function generateOnboardingContext(data) {
 async function runOnboarding() {
   const terminal = createInterface({ input, output });
   const TOTAL_PHASES = 10;
+  let interrupted = false;
+
+  const savePartial = () => {
+    try {
+      const partialDir = join(process.cwd(), "_contexto");
+      mkdirSync(partialDir, { recursive: true });
+      const partialPath = join(partialDir, ".onboarding-partial.json");
+      writeFileSync(partialPath, JSON.stringify({ savedAt: new Date().toISOString(), data: terminal._partialData || {} }, null, 2), "utf8");
+    } catch {}
+  };
+
+  process.on("SIGINT", () => {
+    interrupted = true;
+    savePartial();
+    console.log("\n\n  Progresso salvo em _contexto/.onboarding-partial.json");
+    console.log("  Rode 'supermotor onboarding' novamente para continuar.\n");
+    process.exit(0);
+  });
 
   try {
+    terminal._partialData = {};
     onboardingGreeting();
     const data = {};
 
+    const ask = async (hint, question, field, fallback) => {
+      if (hint) onboardingHint(hint);
+      onboardingQuestion(question);
+      const answer = (await terminal.question("  -> ")).trim();
+      data[field] = answer || fallback || "";
+      terminal._partialData[field] = data[field];
+      if (answer) onboardingInfo(`${question.split("?")[0]}: ${answer.length > 60 ? answer.slice(0, 57) + "..." : answer}\n`);
+      return answer;
+    };
+
     // ━━━ FASE 1: Quem e voce ━━━
     onboardingPhase(1, "Quem e voce", TOTAL_PHASES);
-    onboardingHint("Precisamos saber seu nome para personalizar tudo. Seu contato para servicos externos.");
-    onboardingQuestion("Qual e o seu nome?");
-    data.userName = (await terminal.question("  -> ")).trim();
+    await ask(
+      "Precisamos do seu nome para personalizar tudo. Seu contato para servicos externos.",
+      "Qual e o seu nome?",
+      "userName"
+    );
     if (data.userName) onboardingInfo(`Prazer, ${data.userName}!\n`);
 
-    onboardingQuestion("Seu e-mail (para contato e login em servicos)?");
-    data.userEmail = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Seu WhatsApp (com DDD)?");
-    data.userPhone = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Seu Instagram (se tiver)?");
-    data.userInstagram = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Onde voce esta? (cidade/estado)");
-    data.userLocation = (await terminal.question("  -> ")).trim();
-
+    await ask(null, "Seu e-mail (para contato e login em servicos)?", "userEmail");
+    await ask(null, "Seu WhatsApp (com DDD)?", "userPhone");
+    await ask(null, "Seu Instagram (se tiver)?", "userInstagram");
+    await ask(null, "Onde voce esta? (cidade/estado)", "userLocation");
     onboardingSep();
 
     // ━━━ FASE 2: Seu negocio ━━━
     onboardingPhase(2, "Seu negocio", TOTAL_PHASES);
-    onboardingHint("Essas informacoes definem o contexto do projeto e sao usadas pela IA para tomar decisoes de design e conteudo.");
-    onboardingQuestion("Qual e o nome do seu negocio/empresa?");
-    data.businessName = (await terminal.question("  -> ")).trim();
+    await ask(
+      "O nome do negocio e usado em todo o projeto: titulos, meta tags, brand kit, favicon.",
+      "Qual e o nome do seu negocio/empresa?",
+      "businessName"
+    );
     if (data.businessName) onboardingInfo(`Negocio: ${data.businessName}\n`);
 
-    onboardingQuestion("Em que area/industria voce atua? (ex: consultoria, e-commerce, educacao, saude)");
-    data.businessIndustry = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Descreva seu negocio em 2-3 frases: o que faz, como ajuda, por que existe.");
-    data.businessDescription = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Ha quanto tempo seu negocio existe?");
-    data.businessAge = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Qual o porte? (1 pessoa / pequena equipe 2-5 / media 6-20 / grande 20+)");
-    data.businessSize = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Onde fica seu negocio? (cidade/estado ou 'online/100% digital')");
-    data.businessLocation = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Voce ja tem site? Se sim, qual a URL?");
-    data.businessWebsite = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quais redes sociais o negocio usa? (ex: @instagram, facebook.com/perfil)");
-    data.businessSocial = (await terminal.question("  -> ")).trim();
-
+    await ask(
+      "A area define qual estilo visual, paleta de cores e tipografia a skill ui-ux-pro-max vai recomendar.",
+      "Em que area/industria voce atua? (ex: consultoria, e-commerce, educacao, saude, gastronomia)",
+      "businessIndustry"
+    );
+    await ask(
+      "Uma boa descricao ajuda a IA a entender o contexto e tomar decisoes de design e conteudo.",
+      "Descreva seu negocio em 2-3 frases: o que faz, como ajuda, por que existe.",
+      "businessDescription"
+    );
+    await ask(null, "Ha quanto tempo seu negocio existe?", "businessAge");
+    await ask(null, "Qual o porte? (1 pessoa / pequena equipe 2-5 / media 6-20 / grande 20+)", "businessSize");
+    await ask(null, "Onde fica seu negocio? (cidade/estado ou 'online/100% digital')", "businessLocation");
+    await ask(null, "Voce ja tem site? Se sim, qual a URL?", "businessWebsite");
+    await ask(null, "Quais redes sociais o negocio usa? (ex: @instagram, facebook.com/perfil)", "businessSocial");
     onboardingSep();
 
     // ━━━ FASE 3: Objetivos e visao ━━━
     onboardingPhase(3, "Objetivos e visao", TOTAL_PHASES);
-    onboardingHint("Essas informacoes guiam a estrategia do projeto. A IA usa para definir CTAs, copy e hierarquia de conteudo.");
-    onboardingQuestion("Qual e o principal objetivo do seu negocio agora? (ex: aumentar vendas, captar leads, fortalecer marca)");
-    data.mainGoal = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("O que voce quer alcancar com um projeto digital? (ex: vender online, mostrar portfolio, automatizar atendimento)");
-    data.digitalGoal = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Qual e o maior desafio do seu negocio hoje?");
-    data.mainChallenge = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Onde voce se ve daqui 1 ano com o projeto certo?");
-    data.visionOneYear = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Como voce vai medir se o projeto deu certo? (ex: vendas, contatos, engajamento)");
-    data.successMetric = (await terminal.question("  -> ")).trim();
-
+    await ask(
+      "O objetivo guia a estrategia do projeto: CTAs, copy, hierarquia de conteudo e estrutura de paginas.",
+      "Qual e o principal objetivo do seu negocio agora? (ex: aumentar vendas, captar leads, fortalecer marca)",
+      "mainGoal"
+    );
+    await ask(
+      "Isso define o que o projeto precisa fazer: vender, informar, conectar, automatizar.",
+      "O que voce quer alcancar com um projeto digital? (ex: vender online, mostrar portfolio, automatizar atendimento)",
+      "digitalGoal"
+    );
+    await ask(
+      "Entender o desafio ajuda a IA a priorizar o que e mais importante resolver primeiro.",
+      "Qual e o maior desafio do seu negocio hoje?",
+      "mainChallenge"
+    );
+    await ask(null, "Onde voce se ve daqui 1 ano com o projeto certo?", "visionOneYear");
+    await ask(
+      "A metrica de sucesso define como vamos medir se o projeto funcionou.",
+      "Como voce vai medir se o projeto deu certo? (ex: vendas, contatos, engajamento)",
+      "successMetric"
+    );
     onboardingSep();
 
     // ━━━ FASE 4: Publico-alvo ━━━
     onboardingPhase(4, "Publico-alvo", TOTAL_PHASES);
-    onboardingHint("Conhecer o publico e essencial para a skill de design recomendar o estilo visual, paleta de cores e tipografia corretos.");
-    onboardingQuestion("Quem e seu cliente ideal? (descreva em 1-2 frases)");
-    data.targetAudience = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Qual a faixa etaria do seu publico? (ex: 25-40 anos)");
-    data.audienceAge = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Genero predominante? (masculino / feminino / ambos / nao-binario / todos)");
-    data.audienceGender = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Classe social / faixa de renda do publico? (classe A, B, C, misto)");
-    data.audienceClass = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quais sao as principais dores ou necessidades desse publico?");
-    data.audiencePains = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Onde esse publico esta? (Instagram, Google, WhatsApp, eventos, etc.)");
-    data.audienceWhere = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Como esse publico te encontra hoje? (indicacao, busca, anuncio, organico)");
-    data.audienceFindYou = (await terminal.question("  -> ")).trim();
-
+    await ask(
+      "Conhecer o publico e essencial para a skill de design recomendar o estilo visual correto. O publico define o tom, as cores e a tipografia.",
+      "Quem e seu cliente ideal? (descreva em 1-2 frases)",
+      "targetAudience"
+    );
+    await ask(null, "Qual a faixa etaria do seu publico? (ex: 25-40 anos)", "audienceAge");
+    await ask(null, "Genero predominante? (masculino / feminino / ambos / todos)", "audienceGender");
+    await ask(null, "Classe social / faixa de renda do publico? (classe A, B, C, misto)", "audienceClass");
+    await ask(
+      "As dores do publico sao usadas para criar copy que conecta e converte.",
+      "Quais sao as principais dores ou necessidades desse publico?",
+      "audiencePains"
+    );
+    await ask(null, "Onde esse publico esta? (Instagram, Google, WhatsApp, eventos, etc.)", "audienceWhere");
+    await ask(null, "Como esse publico te encontra hoje? (indicacao, busca, anuncio, organico)", "audienceFindYou");
     onboardingSep();
 
     // ━━━ FASE 5: Modelo de negocio ━━━
     onboardingPhase(5, "Modelo de negocio", TOTAL_PHASES);
-    onboardingHint("Entender como voce fatura ajuda a definir a estrutura do projeto: precificacao, checkout, funil de vendas.");
-    onboardingQuestion("Como voce fatura? (por hora, por produto, assinatura, projeto, comissao)");
-    data.revenueModel = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quais sao seus principais produtos ou servicos?");
-    data.mainProducts = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Qual a faixa de preco dos seus servicos/produtos?");
-    data.priceRange = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Qual o ticket medio (valor medio por cliente)?");
-    data.averageTicket = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quem sao seus principais concorrentes? (nomes ou URLs)");
-    data.competitors = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Qual e o seu diferencial? Por que alguem escolhe voce e nao o concorrente?");
-    data.differentiator = (await terminal.question("  -> ")).trim();
-
+    await ask(
+      "Como voce fatura define a estrutura do projeto: precificacao, checkout, funil de vendas, paginas de servicos.",
+      "Como voce fatura? (por hora, por produto, assinatura, projeto, comissao)",
+      "revenueModel"
+    );
+    await ask(null, "Quais sao seus principais produtos ou servicos?", "mainProducts");
+    await ask(null, "Qual a faixa de preco dos seus servicos/produtos?", "priceRange");
+    await ask(null, "Qual o ticket medio (valor medio por cliente)?", "averageTicket");
+    await ask(
+      "Conhecer os concorrentes ajuda a posicionar seu diferencial e evitar padroes genericos.",
+      "Quem sao seus principais concorrentes? (nomes ou URLs)",
+      "competitors"
+    );
+    await ask(
+      "O diferencial e o que vai destacar seu projeto. Ele define o titulo principal e a proposta de valor.",
+      "Qual e o seu diferencial? Por que alguem escolhe voce e nao o concorrente?",
+      "differentiator"
+    );
     onboardingSep();
 
     // ━━━ FASE 6: Projeto digital ━━━
@@ -1585,16 +1830,16 @@ async function runOnboarding() {
       onboardingQuestion("Voce quer vender algo online, mostrar seu trabalho ou gerenciar clientes?");
       const intent = (await terminal.question("  -> ")).trim().toLowerCase();
 
-      if (/vend|produt|loja|e-commerce|compr/.test(intent)) {
+      if (/vend|produt|loja|e-commerce|compr|assina|preco/.test(intent)) {
         data.projectType = "app";
         console.log("  " + color("36", "-> Uma aplicacao/dashboard seria ideal para vender online.\n"));
-      } else if (/mostr|portfolio|institucional|landing|pagina/.test(intent)) {
+      } else if (/mostr|portfolio|institucional|landing|pagina|presenc/.test(intent)) {
         data.projectType = "site";
         console.log("  " + color("36", "-> Um site premium seria perfeito para mostrar seu trabalho.\n"));
-      } else if (/client|relacionamento|whatsapp|vendas|funil|crm|pipeline/.test(intent)) {
+      } else if (/client|relacionamento|whatsapp|vendas|funil|crm|pipeline|contat/.test(intent)) {
         data.projectType = "crm";
         console.log("  " + color("36", "-> Um CRM com WhatsApp seria ideal para gerenciar seus clientes.\n"));
-      } else if (/social|instagram|carrossel|conteudo|post/.test(intent)) {
+      } else if (/social|instagram|carrossel|conteudo|post|feed/.test(intent)) {
         data.projectType = "carousel";
         console.log("  " + color("36", "-> Um estudo de carrossel seria perfeito para criar conteudo.\n"));
       } else {
@@ -1606,147 +1851,101 @@ async function runOnboarding() {
     const typeLabel = { site: "Site premium", app: "Aplicacao", carousel: "Carrossel", crm: "CRM com WhatsApp" }[data.projectType] || "Projeto";
     onboardingInfo(`Tipo selecionado: ${typeLabel}\n`);
 
-    onboardingQuestion("Qual o nome do projeto?");
-    data.projectName = (await terminal.question("  -> ")).trim();
-    if (!data.projectName) data.projectName = data.businessName;
+    await ask(null, "Qual o nome do projeto?", "projectName", data.businessName);
 
-    onboardingQuestion("Qual o objetivo principal do projeto? (ex: captar clientes, vender produto X, automatizar atendimento)");
-    data.projectObjective = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quais funcionalidades sao essenciais na primeira versao? (liste separado por virgula)");
-    data.projectFeatures = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quais paginas ou secoes o projeto precisa? (ex: home, sobre, servicos, blog, contato)");
-    data.projectPages = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Tem algum site/app que admira como referencia? (URL ou nome)");
-    data.projectReferences = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Precisa de alguma integracao? (ex: Supabase, WhatsApp API, Stripe, pagamento, e-mail)");
-    data.projectIntegrations = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Alguma restricao tecnica? (ex: nao usar frameworks especificos, manter custo zero)");
-    data.projectConstraints = (await terminal.question("  -> ")).trim();
-
+    await ask(
+      "O objetivo do projeto e a frase mais importante: ela define o titulo, os CTAs e a hierarquia de conteudo.",
+      "Qual o objetivo principal do projeto? (ex: captar clientes, vender produto X)",
+      "projectObjective"
+    );
+    await ask(
+      "Essas funcionalidades viram o checklist de implementacao no PRODUCT.md.",
+      "Quais funcionalidades sao essenciais na primeira versao? (liste separado por virgula)",
+      "projectFeatures"
+    );
+    await ask(null, "Quais paginas ou secoes o projeto precisa? (ex: home, sobre, servicos, blog, contato)", "projectPages");
+    await ask(null, "Tem algum site/app que admira como referencia? (URL ou nome)", "projectReferences");
+    await ask(null, "Precisa de alguma integracao? (ex: Supabase, WhatsApp API, Stripe)", "projectIntegrations");
+    await ask(null, "Alguma restricao tecnica? (ex: custo zero, frameworks especificos)", "projectConstraints");
     onboardingSep();
 
     // ━━━ FASE 7: Identidade visual ━━━
     onboardingPhase(7, "Identidade visual", TOTAL_PHASES);
-    onboardingHint("Essas informacoes sao cruzadas com a skill ui-ux-pro-max para gerar recomendacoes de design personalizadas.");
-    onboardingQuestion("Qual nome a marca vai usar? (pode ser diferente do nome do negocio)");
-    data.brandName = (await terminal.question("  -> ")).trim();
-    if (!data.brandName) data.brandName = data.businessName;
+    onboardingHint("Essas informacoes sao cruzadas com ui-ux-pro-max para gerar recomendacoes de design personalizadas.");
+    await ask(null, "Qual nome a marca vai usar? (pode ser diferente do nome do negocio)", "brandName", data.businessName);
 
-    onboardingQuestion("Qual o tom de voz da marca? (ex: profissional, informal, ousado, acolhedor, tecnico)");
-    data.brandTone = (await terminal.question("  -> ")).trim();
+    await ask(
+      "O tom de voz define a personalidade da marca: como ela fala, como ela escreve, como ela se posiciona.",
+      "Qual o tom de voz da marca? (ex: profissional, informal, ousado, acolhedor, tecnico)",
+      "brandTone"
+    );
+    await ask(null, "Se a marca fosse uma pessoa, como voce a descreveria? (ex: confiante, moderna)", "brandPersonality");
+    await ask(null, "Quais cores a marca usa? (ex: azul e branco, preto e dourado)", "brandColors");
 
-    onboardingQuestion("Se a marca fosse uma pessoa, como voce a descreveria? (ex: confiante, moderna, acessivel)");
-    data.brandPersonality = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quais cores a marca usa? (ex: azul e branco, preto e dourado)");
-    data.brandColors = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Cor de destaque em hex (ex: #ff5a1f) ou Enter para usar o padrao:");
-    data.brandAccent = (await terminal.question("  -> ")).trim() || "#ff5a1f";
+    await ask(
+      "A cor de destaque e usada em botoes, links e elementos de acao. Ela e o coracao da paleta.",
+      "Cor de destaque em hex (ex: #ff5a1f) ou Enter para usar o padrao:",
+      "brandAccent",
+      "#ff5a1f"
+    );
     try {
       data.brandAccent = normalizeHexColor(data.brandAccent);
     } catch {
       data.brandAccent = "#ff5a1f";
     }
 
-    onboardingQuestion("Ja tem logo? (sim/nao/caminho do arquivo)");
-    data.hasLogo = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Ja tem favicon? (sim/nao/caminho do arquivo)");
-    data.hasFavicon = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Alguma referencia visual? (sites, cores, estilos que gosta)");
-    data.visualReferences = (await terminal.question("  -> ")).trim();
-
+    await ask(null, "Ja tem logo? (sim/nao/caminho do arquivo)", "hasLogo");
+    await ask(null, "Ja tem favicon? (sim/nao/caminho do arquivo)", "hasFavicon");
+    await ask(null, "Alguma referencia visual? (sites, cores, estilos que gosta)", "visualReferences");
     onboardingSep();
 
     // ━━━ FASE 8: Aspectos tecnicos ━━━
     onboardingPhase(8, "Aspectos tecnicos", TOTAL_PHASES);
     onboardingHint("Informacoes tecnicas ajudam a configurar o projeto corretamente desde o inicio.");
-    onboardingQuestion("Ja tem hospedagem? (ex: Vercel, Netlify, AWS, servidor proprio)");
-    data.currentHosting = (await terminal.question("  -> ")).trim();
+    await ask(null, "Ja tem hospedagem? (ex: Vercel, Netlify, AWS)", "currentHosting");
+    await ask(null, "Ja tem dominio registrado? (ex: meusite.com.br)", "domain");
+    await ask(null, "Usa alguma plataforma hoje? (ex: WordPress, Wix, Shopify)", "currentPlatform");
 
-    onboardingQuestion("Ja tem dominio registrado? (ex: meusite.com.br)");
-    data.domain = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Usa alguma plataforma hoje? (ex: WordPress, Wix, Shopify)");
-    data.currentPlatform = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Precisa de SEO otimizado? [S/n]");
-    data.needsSEO = (await terminal.question("  -> ")).trim();
-    if (!data.needsSEO || data.needsSEO.toLowerCase() === "s") data.needsSEO = "Sim";
+    await ask(null, "Precisa de SEO otimizado? [S/n]", "needsSEO", "Sim");
+    if (data.needsSEO && data.needsSEO.toLowerCase() !== "n" && data.needsSEO.toLowerCase() !== "nao") data.needsSEO = "Sim";
     else data.needsSEO = "Nao";
 
-    onboardingQuestion("Precisa de analytics/rastreamento? [S/n]");
-    data.needsAnalytics = (await terminal.question("  -> ")).trim();
-    if (!data.needsAnalytics || data.needsAnalytics.toLowerCase() === "s") data.needsAnalytics = "Sim";
+    await ask(null, "Precisa de analytics/rastreamento? [S/n]", "needsAnalytics", "Sim");
+    if (data.needsAnalytics && data.needsAnalytics.toLowerCase() !== "n" && data.needsAnalytics.toLowerCase() !== "nao") data.needsAnalytics = "Sim";
     else data.needsAnalytics = "Nao";
 
-    onboardingQuestion("Em quais idiomas o projeto precisa? (ex: portugues, ingles, espanhol)");
-    data.languages = (await terminal.question("  -> ")).trim() || "Portugues (pt-BR)";
-
-    onboardingQuestion("Algum requisito de acessibilidade? (ex: WCAG 2.1, contraste alto, leitor de tela)");
-    data.accessibility = (await terminal.question("  -> ")).trim() || "Padrao WCAG";
-
+    await ask(null, "Em quais idiomas o projeto precisa?", "languages", "Portugues (pt-BR)");
+    await ask(null, "Algum requisito de acessibilidade? (ex: WCAG 2.1, contraste alto)", "accessibility", "Padrao WCAG");
     onboardingSep();
 
     // ━━━ FASE 9: Presenca digital atual ━━━
     onboardingPhase(9, "Presenca digital", TOTAL_PHASES);
     onboardingHint("Entender sua presenca atual ajuda a definir o que integrar e o que criar do zero.");
-    onboardingQuestion("Ja tem site funcionando? Se sim, qual URL?");
-    data.hasWebsite = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quais redes sociais esta ativo? (ex: Instagram, TikTok, LinkedIn, Facebook)");
-    data.activeSocialMedia = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Com que frequencia publica? (diario, semanal, mensal, esporadicamente)");
-    data.postingFrequency = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Usa e-mail marketing? (ex: Mailchimp, RD Station, ActiveCampaign)");
-    data.emailMarketing = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Ja tem lista de contatos/e-mails de clientes?");
-    data.contactList = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Usa WhatsApp Business? (sim/nao)");
-    data.whatsappBusiness = (await terminal.question("  -> ")).trim();
-
+    await ask(null, "Ja tem site funcionando? Se sim, qual URL?", "hasWebsite");
+    await ask(null, "Quais redes sociais esta ativo? (ex: Instagram, TikTok, LinkedIn)", "activeSocialMedia");
+    await ask(null, "Com que frequencia publica? (diario, semanal, mensal)", "postingFrequency");
+    await ask(null, "Usa e-mail marketing? (ex: Mailchimp, RD Station)", "emailMarketing");
+    await ask(null, "Ja tem lista de contatos/e-mails de clientes?", "contactList");
+    await ask(null, "Usa WhatsApp Business? (sim/nao)", "whatsappBusiness");
     onboardingSep();
 
     // ━━━ FASE 10: Proximos passos ━━━
     onboardingPhase(10, "Proximos passos", TOTAL_PHASES);
     onboardingHint("Essas informacoes definem a prioridade e o escopo do projeto.");
-    onboardingQuestion("Qual a urgencia? (urgente essa semana / 1 mes / 3 meses / sem pressa)");
-    data.urgency = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Qual o orcamento estimado para o projeto? (faixa ou 'sem definir')");
-    data.budget = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Qual o prazo desejado para lancar?");
-    data.deadline = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quem toma a decisao final no projeto? (voce / socio / investidor)");
-    data.decisionMaker = (await terminal.question("  -> ")).trim() || "O proprio usuario";
-
-    onboardingQuestion("Tem alguem com conhecimento tecnico na equipe? [S/n]");
-    data.hasTechTeam = (await terminal.question("  -> ")).trim();
-
-    onboardingQuestion("Quer gerenciar o projeto sozinho depois de pronto? [S/n]");
-    data.selfManage = (await terminal.question("  -> ")).trim();
-    if (!data.selfManage || data.selfManage.toLowerCase() === "s") data.selfManage = "Sim";
+    await ask(null, "Qual a urgencia? (urgente essa semana / 1 mes / 3 meses / sem pressa)", "urgency");
+    await ask(null, "Qual o orcamento estimado para o projeto? (faixa ou 'sem definir')", "budget");
+    await ask(null, "Qual o prazo desejado para lancar?", "deadline");
+    await ask(null, "Quem toma a decisao final no projeto? (voce / socio / investidor)", "decisionMaker", "O proprio usuario");
+    await ask(null, "Tem alguem com conhecimento tecnico na equipe? [S/n]", "hasTechTeam");
+    await ask(null, "Quer gerenciar o projeto sozinho depois de pronto? [S/n]", "selfManage", "Sim");
+    if (data.selfManage && data.selfManage.toLowerCase() !== "n" && data.selfManage.toLowerCase() !== "nao") data.selfManage = "Sim";
     else data.selfManage = "Nao";
-
     onboardingSep();
 
     // ━━━ DESIGN INTELIGENTE (usando skill ui-ux-pro-max) ━━━
     console.log();
-    console.log(color("1;38;5;208", "  === BONUS: Design Inteligente ===\n"));
-    onboardingInfo("Analisando suas respostas com a skill ui-ux-pro-max...\n");
+    console.log(color("1;38;5;208", "  === Design Inteligente (skill ui-ux-pro-max) ===\n"));
+    onboardingInfo("Analisando suas respostas com 6 bases de dados...\n");
 
     const designRecs = generateDesignRecommendations(data);
 
@@ -1759,26 +1958,81 @@ async function runOnboarding() {
       console.log(color("37", `    Dica: ${designRecs.product["Key Considerations"]}\n`));
     }
 
+    if (designRecs.palette) {
+      colorSwatch(designRecs.palette);
+    }
+
     if (designRecs.typography) {
       console.log(color("1;37", "  Tipografia recomendada:"));
       console.log(color("37", `    Par: ${designRecs.typography["Font Pairing Name"]}`));
       console.log(color("37", `    Titulo: ${designRecs.typography["Heading Font"]}`));
       console.log(color("37", `    Corpo: ${designRecs.typography["Body Font"]}`));
-      console.log(color("37", `    Mood: ${designRecs.typography["Mood/Style Keywords"]}\n`));
+      console.log(color("37", `    Mood: ${designRecs.typography["Mood/Style Keywords"]}`));
+      if (designRecs.typography["Google Fonts URL"]) {
+        console.log(color("2", `    URL: ${designRecs.typography["Google Fonts URL"].slice(0, 80)}...`));
+      }
+      console.log();
     }
 
     if (designRecs.style) {
       console.log(color("1;37", "  Estilo visual:"));
       console.log(color("37", `    Categoria: ${designRecs.style["Style Category"]}`));
       console.log(color("37", `    Melhor para: ${designRecs.style["Best For"]}`));
+      console.log(color("37", `    NAO usar para: ${designRecs.style["Do Not Use For"]}`));
       console.log(color("37", `    Performance: ${designRecs.style.Performance}`));
-      console.log(color("37", `    Acessibilidade: ${designRecs.style.Accessibility}\n`));
+      console.log(color("37", `    Acessibilidade: ${designRecs.style.Accessibility}`));
+      console.log(color("37", `    Mobile: ${designRecs.style["Mobile-Friendly"]}`));
+      console.log(color("37", `    Conversao: ${designRecs.style["Conversion-Focused"]}`));
+      console.log();
+    }
+
+    if (designRecs.landing) {
+      console.log(color("1;37", "  Padrao de landing page:"));
+      console.log(color("37", `    Padrao: ${designRecs.landing["Pattern Name"]}`));
+      console.log(color("37", `    CTA: ${designRecs.landing["Primary CTA Placement"]}`));
+      console.log(color("37", `    Conversao: ${designRecs.landing["Conversion Optimization"]}`));
+      console.log();
     }
 
     if (designRecs.reasoning) {
       console.log(color("1;37", "  Regras por industria:"));
-      console.log(color("37", `    Anti-padroes: ${designRecs.reasoning.Anti_Patterns}\n`));
+      console.log(color("37", `    Anti-padroes: ${designRecs.reasoning.Anti_Patterns}`));
+      console.log(color("37", `    Severidade: ${designRecs.reasoning.Severity}`));
+      console.log();
     }
+
+    // ━━━ REFERENCIAS DE MARCA (awesome-design-md) ━━━
+    const brandRefs = findBrandReferences(data.businessIndustry, data.projectType, data.brandTone);
+    if (brandRefs.length) {
+      console.log(color("1;37", "  Referencias de marcas reais (awesome-design-md):"));
+      for (const ref of brandRefs) {
+        const colorInfo = ref.primaryColor ? ` | Cor: ${ref.primaryColor}` : "";
+        console.log(color("37", `    ${ref.name}${colorInfo}`));
+        if (ref.description) console.log(color("2", `      ${ref.description.slice(0, 100)}...`));
+      }
+      console.log();
+    }
+
+    // ━━━ SUGESTOES INTELIGENTES ━━━
+    console.log(color("1;38;5;208", "  === Sugestoes Inteligentes ===\n"));
+    const suggestions = generateSuggestions(data);
+    const grouped = {};
+    for (const s of suggestions) {
+      if (!grouped[s.type]) grouped[s.type] = [];
+      grouped[s.type].push(s.text);
+    }
+    const typeLabelsShort = {
+      conteudo: "Conteudo", estrategia: "Estrategia", tecnico: "Tecnico",
+      integracao: "Integracao", seo: "SEO", marketing: "Marketing",
+      diferencial: "Diferencial", qualidade: "Qualidade",
+    };
+    for (const [type, items] of Object.entries(grouped)) {
+      console.log(color("37", `  ${typeLabelsShort[type] || type}:`));
+      for (const item of items) {
+        console.log(color("2", `    ${item}`));
+      }
+    }
+    console.log();
 
     // ━━━ SALVAR CONTEXTO ━━━
     console.log();
@@ -1788,23 +2042,49 @@ async function runOnboarding() {
     mkdirSync(contextDir, { recursive: true });
 
     const contextPath = join(contextDir, "onboarding.md");
-    const contextContent = generateOnboardingContext(data);
-    writeFileSync(contextPath, contextContent, "utf8");
+    writeFileSync(contextPath, generateOnboardingContext(data), "utf8");
     onboardingInfo(`Contexto salvo em: ${contextPath}`);
 
     if (designRecs.product || designRecs.typography || designRecs.style) {
       const designPath = join(contextDir, "design-recommendations.md");
-      const designContent = generateDesignMarkdown(designRecs, data);
-      writeFileSync(designPath, designContent, "utf8");
-      onboardingInfo(`Recomendacoes de design salvas em: ${designPath}`);
+      writeFileSync(designPath, generateDesignMarkdown(designRecs, data), "utf8");
+      onboardingInfo(`Design recomendado em: ${designPath}`);
     }
 
     const brandPath = join(contextDir, "brand-kit.md");
-    const brandContent = generateBrandKitMarkdown(data);
-    writeFileSync(brandPath, brandContent, "utf8");
-    onboardingInfo(`Brand Kit salvo em: ${brandPath}\n`);
+    writeFileSync(brandPath, generateBrandKitMarkdown(data), "utf8");
+    onboardingInfo(`Brand Kit salvo em: ${brandPath}`);
 
-    // ━━━ RESUMO ━━━
+    const suggestionsPath = join(contextDir, "suggestions.md");
+    writeFileSync(suggestionsPath, generateSuggestionsMarkdown(suggestions, data), "utf8");
+    onboardingInfo(`Sugestoes salvas em: ${suggestionsPath}`);
+
+    const projectContextPath = join(contextDir, "project-context.md");
+    writeFileSync(projectContextPath, generateProjectContextFromOnboarding(data, designRecs), "utf8");
+    onboardingInfo(`Contexto do projeto salvo em: ${projectContextPath}\n`);
+
+    // ━━━ PROMPT PARA IA ━━━
+    const aiPrompt = [
+      `Leia o contexto completo em _contexto/onboarding.md e _contexto/design-recommendations.md.`,
+      `O projeto "${data.projectName || "—"}" e um ${typeLabel} para o negocio "${data.businessName || "—"}" (${data.businessIndustry || "—"}).`,
+      `Publico: ${data.targetAudience || "—"}.`,
+      `Diferencial: ${data.differentiator || "—"}.`,
+      `Objetivo: ${data.projectObjective || data.mainGoal || "—"}.`,
+      `Marca: ${data.brandName || "—"} | Tom: ${data.brandTone || "—"} | Cor: ${data.brandAccent || "—"}.`,
+      `Estilo recomendado: ${designRecs.product?.["Primary Style Recommendation"] || "Minimalism"}.`,
+      `Tipografia: ${designRecs.typography?.["Font Pairing Name"] || "Modern Professional"}.`,
+      `Funcionalidades: ${data.projectFeatures || "definir"}.`,
+      `Paginas: ${data.projectPages || "definir"}.`,
+      `Leia AGENTS.md, SUPERPROMPT.md, PRODUCT.md, CONVERSATION.md, BRAND.md, DESIGN.md e QUALITY.md antes de alterar codigo.`,
+      `Registre seu andamento com node .supermotor/agent.mjs.`,
+      `Implemente com autonomia, teste o resultado e informe o que concluiu.`,
+    ].join("\n");
+
+    console.log(color("1;37", "  Prompt pronto para a IA:\n"));
+    console.log(color("2", `  "${aiPrompt.slice(0, 200)}..."`));
+    console.log();
+
+    // ━━━ RESUMO FINAL ━━━
     console.log();
     console.log(color("1;38;5;208", "  ╔══════════════════════════════════════════════════════════╗"));
     console.log(color("1;38;5;208", "  ║") + color("1;37", "                    RESUMO DO ONBOARDING                   ") + color("1;38;5;208", "  ║"));
@@ -1817,7 +2097,11 @@ async function runOnboarding() {
     console.log(color("37", `  Publico:      ${data.targetAudience || "---"}`));
     console.log(color("37", `  Projeto:      ${typeLabel} -- "${data.projectName || "---"}"`));
     console.log(color("37", `  Marca:        ${data.brandName || "---"}`));
-    console.log(color("37", `  Cor:          ${data.brandAccent}`));
+    if (designRecs.palette) {
+      console.log(`  Cores:        ${colorBlock(designRecs.palette.Primary || "#2563EB", "")} ${colorBlock(designRecs.palette.Accent || "#EA580C", "")}`);
+    }
+    console.log(color("37", `  Estilo:       ${designRecs.style?.["Style Category"] || "---"}`));
+    console.log(color("37", `  Fontes:       ${designRecs.typography?.["Font Pairing Name"] || "---"}`));
     console.log(color("37", `  Urgencia:     ${data.urgency || "---"}`));
     console.log(color("37", `  Orcamento:    ${data.budget || "---"}`));
     console.log();
@@ -1844,7 +2128,7 @@ async function runOnboarding() {
         } else {
           const answers = {
             name: data.projectName,
-            brief: data.projectObjective || "Criar uma experiencia digital memoravel, clara e orientada a resultado.",
+            brief: data.projectObjective || data.mainGoal || "Criar uma experiencia digital memoravel, clara e orientada a resultado.",
             success: data.successMetric || "O fluxo principal funciona de ponta a ponta, com clareza, qualidade e validacao real.",
             essentials: data.projectFeatures || "Experiencia principal completa, estados de erro e vazio, responsividade e acessibilidade.",
             constraints: data.projectConstraints || "Preservar seguranca, desempenho, identidade da marca e compatibilidade mobile.",
@@ -1852,7 +2136,7 @@ async function runOnboarding() {
             audience: data.targetAudience || DEFAULT_BRAND.audience,
             tone: data.brandTone || DEFAULT_BRAND.tone,
             accent: data.brandAccent || DEFAULT_BRAND.accent,
-            favicon: data.hasFavicon && data.hasFavicon !== "nao" && data.hasFavicon !== "Nao" ? data.hasFavicon : "auto",
+            favicon: data.hasFavicon && data.hasFavicon.toLowerCase() !== "nao" && data.hasFavicon.toLowerCase() !== "n" ? data.hasFavicon : "auto",
           };
 
           if (resolvedType === "crm") {
@@ -1875,7 +2159,7 @@ async function runOnboarding() {
               initializeProjectTracking(destination, {
                 projectType: resolvedType,
                 name: data.projectName,
-                objective: data.projectObjective,
+                objective: data.projectObjective || data.mainGoal,
                 success: data.successMetric,
                 essentials: data.projectFeatures,
                 constraints: data.projectConstraints,
@@ -1883,8 +2167,19 @@ async function runOnboarding() {
                 motorVersion: "3.0.0",
               });
 
+              const onboardingCtx = join(destination, "_contexto");
+              mkdirSync(onboardingCtx, { recursive: true });
+              writeFileSync(join(onboardingCtx, "onboarding.md"), generateProjectContextFromOnboarding(data, designRecs), "utf8");
+              if (designRecs.product || designRecs.typography || designRecs.style) {
+                writeFileSync(join(onboardingCtx, "design-recommendations.md"), generateDesignMarkdown(designRecs, data), "utf8");
+              }
+              writeFileSync(join(onboardingCtx, "brand-kit.md"), generateBrandKitMarkdown(data), "utf8");
+              writeFileSync(join(onboardingCtx, "suggestions.md"), generateSuggestionsMarkdown(suggestions, data), "utf8");
+              writeFileSync(join(onboardingCtx, "ai-prompt.txt"), aiPrompt, "utf8");
+
               ui.ok("Starter e contexto de IA criados");
               ui.ok(`Favicon: ${faviconSource}`);
+              ui.ok("Contexto do onboarding injetado no projeto");
               npmInstall(destination);
 
               const displayPath = relative(process.cwd(), destination) || destination;
@@ -1892,7 +2187,8 @@ async function runOnboarding() {
               console.log(`  cd "${displayPath}"`);
               console.log("  npm run dev");
               console.log("\nDepois, peca a IA:");
-              console.log('  "Leia SUPERPROMPT.md, PRODUCT.md, CONVERSATION.md, BRAND.md, DESIGN.md e QUALITY.md. Registre seu andamento e execute o projeto ate passar em todos os criterios."');
+              console.log(`  "${aiPrompt.slice(0, 120)}..."`);
+              console.log(`\nOu copie o prompt completo de: ${join(displayPath, "_contexto", "ai-prompt.txt")}`);
               console.log(`\n${color("32", "Projeto criado com sucesso:")} ${destination}\n`);
             }
           }
@@ -1900,8 +2196,13 @@ async function runOnboarding() {
       }
     } else {
       console.log();
-      console.log("  " + color("36", "Sem problemas! O contexto esta salvo em _contexto/onboarding.md"));
-      console.log("  " + color("36", "Tambem foi gerado design-recommendations.md e brand-kit.md"));
+      console.log("  " + color("36", "Sem problemas! Todos os arquivos foram salvos em _contexto/:"));
+      console.log("    onboarding.md               Contexto completo do usuario/negocio");
+      console.log("    design-recommendations.md   Recomendacoes da skill ui-ux-pro-max");
+      console.log("    brand-kit.md                Kit de marca estruturado");
+      console.log("    suggestions.md              Sugestoes de SEO, conteudo e estrategia");
+      console.log("    project-context.md          Contexto do projeto para a IA");
+      console.log();
       console.log("  " + color("36", "Quando quiser criar o projeto, use:"));
       console.log();
       console.log(`    supermotor criar ${data.projectType} "${data.projectName || "Nome do Projeto"}"`);
