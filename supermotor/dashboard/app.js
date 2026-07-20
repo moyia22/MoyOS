@@ -211,9 +211,14 @@ function renderFiles(project) {
     elements["file-list"].append(node("li", "agent-empty", "Nenhum arquivo recente encontrado."));
     return;
   }
+  const newFiles = detectNewFiles(project);
   let totalSize = 0;
   for (const file of project.recentFiles) {
     const item = node("li", "file-item");
+    if (newFiles.has(file.path)) {
+      item.classList.add("flash");
+      setTimeout(() => item.classList.remove("flash"), 2000);
+    }
     const code = node("code", "", file.path);
     code.title = file.path;
     const meta = node("div", "file-meta");
@@ -397,6 +402,30 @@ elements["activity-form"].addEventListener("submit", async (event) => {
     elements["form-message"].textContent = error.message;
   }
 });
+
+document.querySelectorAll(".status-pick").forEach((pick) => {
+  pick.addEventListener("click", () => {
+    document.querySelectorAll(".status-pick").forEach((p) => p.classList.remove("active"));
+    pick.classList.add("active");
+    elements["activity-status"].value = pick.dataset.status;
+  });
+});
+
+const previousFileHashes = new Map();
+function detectNewFiles(project) {
+  if (!project) return new Set();
+  const currentHash = project.recentFiles.map((f) => f.path).join("|");
+  const prev = previousFileHashes.get(project.id) || "";
+  const newFiles = new Set();
+  if (prev && prev !== currentHash) {
+    const prevFiles = new Set(prev.split("|"));
+    for (const file of project.recentFiles) {
+      if (!prevFiles.has(file.path)) newFiles.add(file.path);
+    }
+  }
+  previousFileHashes.set(project.id, currentHash);
+  return newFiles;
+}
 
 fetchState().then(() => updateConnection(true)).catch((error) => {
   updateConnection(false);

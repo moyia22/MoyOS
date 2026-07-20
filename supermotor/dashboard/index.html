@@ -179,7 +179,15 @@
                 <div class="form-grid">
                   <label>Agente<input id="activity-agent" name="agent" value="Eu" maxlength="80" required /></label>
                   <label>Estado
-                    <select id="activity-status" name="status">
+                    <div class="status-quickpicks" id="status-quickpicks" role="radiogroup" aria-label="Status do agente">
+                      <button type="button" class="status-pick active" data-status="working" title="Trabalhando">⚡</button>
+                      <button type="button" class="status-pick" data-status="planning" title="Planejando">📋</button>
+                      <button type="button" class="status-pick" data-status="testing" title="Testando">🧪</button>
+                      <button type="button" class="status-pick" data-status="reviewing" title="Revisando">👀</button>
+                      <button type="button" class="status-pick" data-status="blocked" title="Bloqueado">🚫</button>
+                      <button type="button" class="status-pick" data-status="done" title="Concluído">✅</button>
+                    </div>
+                    <select id="activity-status" name="status" class="sr-only">
                       <option value="working">Trabalhando</option>
                       <option value="planning">Planejando</option>
                       <option value="testing">Testando</option>
