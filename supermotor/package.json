@@ -7,7 +7,7 @@
   "scripts": {
     "supermotor": "node bin/supermotor.mjs",
     "doctor": "node bin/supermotor.mjs doctor",
-    "test": "node tests/smoke.mjs && node tests/dashboard.mjs"
+    "test": "node --test tests/brand.test.mjs tests/tokens.test.mjs tests/csv.test.mjs tests/constants.test.mjs tests/project.test.mjs && node tests/smoke.mjs && node tests/dashboard.mjs"
   },
   "engines": {
     "node": ">=20"
