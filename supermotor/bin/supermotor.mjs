@@ -385,6 +385,313 @@ function projectTokens(type, answers, slug, extra = {}) {
   };
 }
 
+const SKILLS_ROOT = join(ROOT, "skills");
+const UUPM_DATA = join(SKILLS_ROOT, "ui-ux-pro-max", "src", "ui-ux-pro-max", "data");
+
+function parseCSVLine(line) {
+  const fields = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      fields.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+function readCSV(filename) {
+  const path = join(UUPM_DATA, filename);
+  if (!existsSync(path)) return [];
+  const content = readFileSync(path, "utf8");
+  const lines = content.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return [];
+  const headers = parseCSVLine(lines[0]);
+  return lines.slice(1).map((line) => {
+    const values = parseCSVLine(line);
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] || "";
+    });
+    return row;
+  });
+}
+
+function scoreMatch(text, keywords) {
+  if (!text || !keywords) return 0;
+  const lower = text.toLowerCase();
+  const words = keywords.toLowerCase().split(/[,\s]+/).filter(Boolean);
+  let score = 0;
+  for (const word of words) {
+    if (lower.includes(word)) score += 1;
+  }
+  return score;
+}
+
+function findBestProductType(industry, description, goal) {
+  const products = readCSV("products.csv");
+  if (!products.length) return null;
+  const searchText = [industry, description, goal].filter(Boolean).join(" ");
+  let best = null;
+  let bestScore = 0;
+  for (const row of products) {
+    const score = scoreMatch(searchText, row.Keywords);
+    if (score > bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+  return best;
+}
+
+function findBestColorPalette(productType) {
+  const colors = readCSV("colors.csv");
+  if (!colors.length) return null;
+  const search = productType || "";
+  let best = null;
+  let bestScore = 0;
+  for (const row of colors) {
+    const score = scoreMatch(search, row["Product Type"]) + (row["Product Type"] === productType ? 10 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+  return best;
+}
+
+function findBestTypography(tone, personality, industry) {
+  const typography = readCSV("typography.csv");
+  if (!typography.length) return null;
+  const searchText = [tone, personality, industry].filter(Boolean).join(" ");
+  let best = null;
+  let bestScore = 0;
+  for (const row of typography) {
+    const score = scoreMatch(searchText, row["Mood/Style Keywords"]);
+    if (score > bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+  if (!best) best = typography[1];
+  return best;
+}
+
+function findBestStyle(productType, tone) {
+  const styles = readCSV("styles.csv");
+  if (!styles.length) return null;
+  const searchText = [productType, tone].filter(Boolean).join(" ");
+  let best = null;
+  let bestScore = 0;
+  for (const row of styles) {
+    const score = scoreMatch(searchText, row.Keywords) + scoreMatch(searchText, row["Best For"]);
+    if (score > bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+  return best;
+}
+
+function findBestLandingPattern(projectType, goal) {
+  const landing = readCSV("landing.csv");
+  if (!landing.length) return null;
+  const searchText = [projectType, goal].filter(Boolean).join(" ");
+  let best = null;
+  let bestScore = 0;
+  for (const row of landing) {
+    const score = scoreMatch(searchText, row.Keywords);
+    if (score > bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+  return best;
+}
+
+function findReasoningRules(industry) {
+  const reasoning = readCSV("ui-reasoning.csv");
+  if (!reasoning.length) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const row of reasoning) {
+    const score = scoreMatch(industry, row.UI_Category);
+    if (score > bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+  return best;
+}
+
+function generateDesignRecommendations(data) {
+  const product = findBestProductType(data.businessIndustry, data.businessDescription, data.digitalGoal);
+  const palette = findBestColorPalette(product?.["Product Type"]);
+  const typography = findBestTypography(data.brandTone, data.brandPersonality, data.businessIndustry);
+  const style = findBestStyle(product?.["Product Type"], data.brandTone);
+  const landing = findBestLandingPattern(data.projectType, data.digitalGoal);
+  const reasoning = findReasoningRules(data.businessIndustry);
+
+  return { product, palette, typography, style, landing, reasoning };
+}
+
+function generateDesignMarkdown(recs, data) {
+  const lines = [];
+  lines.push("# Design Inteligente — Recomendações UI/UX");
+  lines.push(`> Gerado pelo SUPERMOTOR 3.0 com a skill ui-ux-pro-max\n`);
+
+  if (recs.product) {
+    lines.push("## Tipo de Produto Recomendado\n");
+    lines.push(`- **Categoria:** ${recs.product["Product Type"]}`);
+    lines.push(`- **Estilo principal:** ${recs.product["Primary Style Recommendation"]}`);
+    lines.push(`- **Estilos secundários:** ${recs.product["Secondary Styles"]}`);
+    lines.push(`- **Padrão de landing:** ${recs.product["Landing Page Pattern"]}`);
+    lines.push(`- **Dashboard:** ${recs.product["Dashboard Style (if applicable)"]}`);
+    lines.push(`- **Paleta de cores:** ${recs.product["Color Palette Focus"]}`);
+    lines.push(`- **Considerações:** ${recs.product["Key Considerations"]}`);
+    lines.push("");
+  }
+
+  if (recs.palette) {
+    lines.push("## Paleta de Cores Recomendada\n");
+    lines.push(`| Função | Cor |`);
+    lines.push(`|--------|-----|`);
+    lines.push(`| Primária | ${recs.palette.Primary} |`);
+    lines.push(`| Secundária | ${recs.palette.Secondary} |`);
+    lines.push(`| Destaque | ${recs.palette.Accent} |`);
+    lines.push(`| Fundo | ${recs.palette.Background} |`);
+    lines.push(`| Texto | ${recs.palette.Foreground} |`);
+    lines.push(`| Card | ${recs.palette.Card} |`);
+    lines.push(`| Bordas | ${recs.palette.Border} |`);
+    lines.push(`| Erro | ${recs.palette.Destructive} |`);
+    lines.push(`| Foco | ${recs.palette.Ring} |`);
+    lines.push(`\n> ${recs.palette.Notes}\n`);
+  }
+
+  if (recs.typography) {
+    lines.push("## Tipografia Recomendada\n");
+    lines.push(`- **Par de fontes:** ${recs.typography["Font Pairing Name"]}`);
+    lines.push(`- **Fonte de título:** ${recs.typography["Heading Font"]}`);
+    lines.push(`- **Fonte de corpo:** ${recs.typography["Body Font"]}`);
+    lines.push(`- **Categoria:** ${recs.typography.Category}`);
+    lines.push(`- **Mood:** ${recs.typography["Mood/Style Keywords"]}`);
+    lines.push(`- **Melhor para:** ${recs.typography["Best For"]}`);
+    lines.push(`\n### Importação Google Fonts\n`);
+    lines.push("```css");
+    lines.push(recs.typography["CSS Import"] || "");
+    lines.push("```\n");
+    lines.push("### Configuração Tailwind\n");
+    lines.push("```js");
+    lines.push(recs.typography["Tailwind Config"] || "");
+    lines.push("```\n");
+    lines.push(`> ${recs.typography.Notes}\n`);
+  }
+
+  if (recs.style) {
+    lines.push("## Estilo Visual Recomendado\n");
+    lines.push(`- **Categoria:** ${recs.style["Style Category"]}`);
+    lines.push(`- **Tipo:** ${recs.style.Type}`);
+    lines.push(`- **Melhor para:** ${recs.style["Best For"]}`);
+    lines.push(`- **NÃO usar para:** ${recs.style["Do Not Use For"]}`);
+    lines.push(`- **Performance:** ${recs.style.Performance}`);
+    lines.push(`- **Acessibilidade:** ${recs.style.Accessibility}`);
+    lines.push(`- **Mobile:** ${recs.style["Mobile-Friendly"]}`);
+    lines.push(`- **Conversão:** ${recs.style["Conversion-Focused"]}`);
+    lines.push(`- **Complexidade:** ${recs.style.Complexity}`);
+    lines.push(`- **Era/Origem:** ${recs.style["Era/Origin"]}`);
+    lines.push(`\n### Prompt para IA\n`);
+    lines.push(`> ${recs.style["AI Prompt Keywords"]}\n`);
+    lines.push(`### Variáveis de Design System\n`);
+    lines.push("```css");
+    lines.push(recs.style["Design System Variables"] || "");
+    lines.push("```\n");
+    lines.push(`### Checklist de Implementação\n`);
+    lines.push((recs.style["Implementation Checklist"] || "").split(", ").map((item) => `- ${item}`).join("\n"));
+    lines.push("");
+  }
+
+  if (recs.landing && (data.projectType === "site" || data.projectType === "carousel")) {
+    lines.push("## Padrão de Landing Page\n");
+    lines.push(`- **Padrão:** ${recs.landing["Pattern Name"]}`);
+    lines.push(`- **Ordem das seções:** ${recs.landing["Section Order"]}`);
+    lines.push(`- **CTA principal:** ${recs.landing["Primary CTA Placement"]}`);
+    lines.push(`- **Estratégia de cores:** ${recs.landing["Color Strategy"]}`);
+    lines.push(`- **Efeitos recomendados:** ${recs.landing["Recommended Effects"]}`);
+    lines.push(`- **Otimização de conversão:** ${recs.landing["Conversion Optimization"]}`);
+    lines.push("");
+  }
+
+  if (recs.reasoning) {
+    lines.push("## Regras de Raciocínio por Indústria\n");
+    lines.push(`- **Padrão recomendado:** ${recs.reasoning.Recommended_Pattern}`);
+    lines.push(`- **Prioridade de estilo:** ${recs.reasoning.Style_Priority}`);
+    lines.push(`- **Mood de cores:** ${recs.reasoning.Color_Mood}`);
+    lines.push(`- **Mood de tipografia:** ${recs.reasoning.Typography_Mood}`);
+    lines.push(`- **Efeitos chave:** ${recs.reasoning.Key_Effects}`);
+    lines.push(`- **Anti-padrões:** ${recs.reasoning.Anti_Patterns}`);
+    lines.push(`- **Severidade:** ${recs.reasoning.Severity}`);
+    lines.push("");
+  }
+
+  lines.push("---");
+  lines.push("> Estas recomendações foram geradas automaticamente pela skill ui-ux-pro-max.");
+  lines.push("> Use como base para DESIGN.md do projeto.\n");
+
+  return lines.join("\n");
+}
+
+function generateBrandKitMarkdown(data) {
+  const lines = [];
+  lines.push("# Brand Kit — Identidade Visual");
+  lines.push(`> Gerado pelo SUPERMOTOR 3.0\n`);
+
+  lines.push("## Informações da Marca\n");
+  lines.push(`- **Nome:** ${data.brandName || data.businessName || "—"}`);
+  lines.push(`- **Negócio:** ${data.businessName || "—"}`);
+  lines.push(`- **Área:** ${data.businessIndustry || "—"}`);
+  lines.push(`- **Público:** ${data.targetAudience || "—"}`);
+  lines.push("");
+
+  lines.push("## Personalidade\n");
+  lines.push(`- **Tom de voz:** ${data.brandTone || "—"}`);
+  lines.push(`- **Personalidade:** ${data.brandPersonality || "—"}`);
+  lines.push(`- **Cores preferidas:** ${data.brandColors || "—"}`);
+  lines.push("");
+
+  lines.push("## Paleta de Cores\n");
+  lines.push(`- **Cor de destaque:** ${data.brandAccent || "#ff5a1f"}`);
+  lines.push("");
+
+  lines.push("## Ativos\n");
+  lines.push(`- **Logo:** ${data.hasLogo || "Não"}`);
+  lines.push(`- **Favicon:** ${data.hasFavicon || "Não"}`);
+  lines.push(`- **Referências visuais:** ${data.visualReferences || "Nenhuma"}`);
+  lines.push("");
+
+  lines.push("---");
+  lines.push("> Brand Kit completo. Use como referência para criar BRAND.md e DESIGN.md.\n");
+
+  return lines.join("\n");
+}
+
 async function promptForMissing(type, name, brief, options = {}) {
   if (!input.isTTY) {
     let piped = "";
@@ -967,11 +1274,654 @@ function doctor() {
   process.exitCode = healthy ? 0 : 1;
 }
 
+function onboardingProgress(current, total) {
+  const filled = Math.round((current / total) * 20);
+  const bar = "\u2588".repeat(filled) + "\u2591".repeat(20 - filled);
+  console.log(color("2", `  [${bar}] ${current}/${total}\n`));
+}
+
+function onboardingGreeting() {
+  console.log();
+  console.log(color("1;38;5;208", "\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557"));
+  console.log(color("1;38;5;208", "\u2551") + color("1;37", "                  SUPERMOTOR 3.0                          ") + color("1;38;5;208", "\u2551"));
+  console.log(color("1;38;5;208", "\u2551") + color("36", "       O sistema operacional do seu negocio               ") + color("1;38;5;208", "\u2551"));
+  console.log(color("1;38;5;208", "\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d"));
+  console.log();
+  console.log(color("37", "  Ola! Bem-vindo ao SUPERMOTOR."));
+  console.log();
+  console.log("  Vou te conhecer melhor para criar o projeto ideal para");
+  console.log("  o seu negocio. Sao 10 fases rapidas.");
+  console.log();
+  console.log("  Cada pergunta tem um motivo. Vou explicar por que importa.");
+  console.log("  Tudo fica salvo no contexto do projeto.\n");
+  console.log(color("33", "  Dica: pressione Enter para pular perguntas opcionais."));
+  console.log(color("33", "  Respostas em branco usam os valores padrao.\n"));
+}
+
+function onboardingSep() {
+  console.log(color("2", "  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n"));
+}
+
+function onboardingQuestion(text) {
+  console.log(color("1;36", `  ? ${text}`));
+}
+
+function onboardingHint(text) {
+  console.log(color("2", `    ${text}`));
+}
+
+function onboardingInfo(text) {
+  console.log(color("32", `  > ${text}`));
+}
+
+function onboardingPhase(num, title, total) {
+  console.log();
+  console.log(color("1;38;5;208", `  === Fase ${num}/${total}: ${title} ===`));
+  console.log();
+  onboardingProgress(num, total);
+}
+
+function generateOnboardingContext(data) {
+  const lines = [];
+  const date = new Date().toISOString().slice(0, 10);
+
+  lines.push(`# Contexto do Onboarding — ${data.businessName || data.userName || "Novo usuario"}`);
+  lines.push(`> Gerado em ${date} pelo SUPERMOTOR 3.0`);
+  lines.push(`> Skill: ui-ux-pro-max v2.11.0 integrada\n`);
+
+  lines.push("---\n");
+
+  lines.push("## Sobre Voce\n");
+  lines.push(`- **Nome:** ${data.userName || "Nao informado"}`);
+  lines.push(`- **Email:** ${data.userEmail || "Nao informado"}`);
+  lines.push(`- **WhatsApp:** ${data.userPhone || "Nao informado"}`);
+  lines.push(`- **Instagram:** ${data.userInstagram || "Nao informado"}`);
+  lines.push(`- **Localizacao:** ${data.userLocation || "Nao informado"}`);
+  lines.push("");
+
+  lines.push("## Sobre o Negocio\n");
+  lines.push(`- **Nome do negocio:** ${data.businessName || "Nao informado"}`);
+  lines.push(`- **Area/Industria:** ${data.businessIndustry || "Nao informado"}`);
+  lines.push(`- **Descricao:** ${data.businessDescription || "Nao informado"}`);
+  lines.push(`- **Tempo de mercado:** ${data.businessAge || "Nao informado"}`);
+  lines.push(`- **Porte:** ${data.businessSize || "Nao informado"}`);
+  lines.push(`- **Localizacao do negocio:** ${data.businessLocation || "Nao informado"}`);
+  lines.push(`- **Site atual:** ${data.businessWebsite || "Nao possui"}`);
+  lines.push(`- **Redes sociais:** ${data.businessSocial || "Nao informado"}`);
+  lines.push("");
+
+  lines.push("## Objetivos e Visao\n");
+  lines.push(`- **Objetivo principal:** ${data.mainGoal || "Nao informado"}`);
+  lines.push(`- **O que quer alcancar digitalmente:** ${data.digitalGoal || "Nao informado"}`);
+  lines.push(`- **Principal desafio:** ${data.mainChallenge || "Nao informado"}`);
+  lines.push(`- **Onde se ve em 1 ano:** ${data.visionOneYear || "Nao informado"}`);
+  lines.push(`- **Metrica de sucesso:** ${data.successMetric || "Nao informado"}`);
+  lines.push("");
+
+  lines.push("## Publico-Alvo\n");
+  lines.push(`- **Publico principal:** ${data.targetAudience || "Nao informado"}`);
+  lines.push(`- **Idade/faixa etaria:** ${data.audienceAge || "Nao informado"}`);
+  lines.push(`- **Genero predominante:** ${data.audienceGender || "Nao informado"}`);
+  lines.push(`- **Classe social/Renda:** ${data.audienceClass || "Nao informado"}`);
+  lines.push(`- **Dores e necessidades:** ${data.audiencePains || "Nao informado"}`);
+  lines.push(`- **Onde o publico esta:** ${data.audienceWhere || "Nao informado"}`);
+  lines.push(`- **Como o publico te encontra:** ${data.audienceFindYou || "Nao informado"}`);
+  lines.push("");
+
+  lines.push("## Modelo de Negocio\n");
+  lines.push(`- **Como fatura/recebe:** ${data.revenueModel || "Nao informado"}`);
+  lines.push(`- **Produtos/servicos principais:** ${data.mainProducts || "Nao informado"}`);
+  lines.push(`- **Faixa de preco:** ${data.priceRange || "Nao informado"}`);
+  lines.push(`- **Ticket medio:** ${data.averageTicket || "Nao informado"}`);
+  lines.push(`- **Concorrentes principais:** ${data.competitors || "Nao informado"}`);
+  lines.push(`- **Diferencial competitivo:** ${data.differentiator || "Nao informado"}`);
+  lines.push("");
+
+  lines.push("## Projeto Digital\n");
+  lines.push(`- **Tipo de projeto:** ${data.projectType || "Nao definido"}`);
+  lines.push(`- **Nome do projeto:** ${data.projectName || "Nao definido"}`);
+  lines.push(`- **Objetivo do projeto:** ${data.projectObjective || "Nao definido"}`);
+  lines.push(`- **Funcionalidades essenciais:** ${data.projectFeatures || "Nao definido"}`);
+  lines.push(`- **Paginas/secoes necessarias:** ${data.projectPages || "Nao definido"}`);
+  lines.push(`- **Referencias/inspiracoes:** ${data.projectReferences || "Nenhuma"}`);
+  lines.push(`- **Integracoes necessarias:** ${data.projectIntegrations || "Nenhuma"}`);
+  lines.push(`- **Restricoes tecnicas:** ${data.projectConstraints || "Nenhuma"}`);
+  lines.push("");
+
+  lines.push("## Identidade Visual\n");
+  lines.push(`- **Nome da marca:** ${data.brandName || data.businessName || "Nao informado"}`);
+  lines.push(`- **Tom de voz:** ${data.brandTone || "Nao informado"}`);
+  lines.push(`- **Personalidade:** ${data.brandPersonality || "Nao informado"}`);
+  lines.push(`- **Cores preferidas:** ${data.brandColors || "Nao informado"}`);
+  lines.push(`- **Cor de destaque:** ${data.brandAccent || "#ff5a1f"}`);
+  lines.push(`- **Tem logo:** ${data.hasLogo || "Nao"}`);
+  lines.push(`- **Ja tem favicon:** ${data.hasFavicon || "Nao"}`);
+  lines.push(`- **Referencias visuais:** ${data.visualReferences || "Nenhuma"}`);
+  lines.push("");
+
+  lines.push("## Aspectos Tecnicos\n");
+  lines.push(`- **Hospedagem atual:** ${data.currentHosting || "Nao possui"}`);
+  lines.push(`- **Dominio:** ${data.domain || "Nao possui"}`);
+  lines.push(`- **Plataforma atual:** ${data.currentPlatform || "Nenhuma"}`);
+  lines.push(`- **Precisa de SEO:** ${data.needsSEO || "Sim"}`);
+  lines.push(`- **Precisa de analytics:** ${data.needsAnalytics || "Sim"}`);
+  lines.push(`- **Idiomas:** ${data.languages || "Portugues (pt-BR)"}`);
+  lines.push(`- **Acessibilidade:** ${data.accessibility || "Padrao WCAG"}`);
+  lines.push("");
+
+  lines.push("## Presenca Digital Atual\n");
+  lines.push(`- **Ja tem site:** ${data.hasWebsite || "Nao"}`);
+  lines.push(`- **Redes sociais ativas:** ${data.activeSocialMedia || "Nenhuma"}`);
+  lines.push(`- **Frequencia de publicacao:** ${data.postingFrequency || "Nao publica"}`);
+  lines.push(`- **E-mail marketing:** ${data.emailMarketing || "Nao utiliza"}`);
+  lines.push(`- **Lista de contatos:** ${data.contactList || "Nao possui"}`);
+  lines.push(`- **WhatsApp Business:** ${data.whatsappBusiness || "Nao utiliza"}`);
+  lines.push("");
+
+  lines.push("## Proximos Passos\n");
+  lines.push(`- **Urgencia:** ${data.urgency || "Nao definida"}`);
+  lines.push(`- **Orcamento estimado:** ${data.budget || "Nao definido"}`);
+  lines.push(`- **Prazo desejado:** ${data.deadline || "Nao definido"}`);
+  lines.push(`- **Quem decide:** ${data.decisionMaker || "O proprio usuario"}`);
+  lines.push(`- **Tem equipe tecnica:** ${data.hasTechTeam || "Nao"}`);
+  lines.push(`- **Quer gerenciar sozinho:** ${data.selfManage || "Sim"}`);
+  lines.push("");
+
+  lines.push("---\n");
+  lines.push(`> Contexto completo. Use este arquivo como base para criar projetos.`);
+  lines.push(`> O SUPERMOTOR pode ler estes dados automaticamente ao usar \`supermotor criar\`.\n`);
+
+  return lines.join("\n");
+}
+
+async function runOnboarding() {
+  const terminal = createInterface({ input, output });
+  const TOTAL_PHASES = 10;
+
+  try {
+    onboardingGreeting();
+    const data = {};
+
+    // ━━━ FASE 1: Quem e voce ━━━
+    onboardingPhase(1, "Quem e voce", TOTAL_PHASES);
+    onboardingHint("Precisamos saber seu nome para personalizar tudo. Seu contato para servicos externos.");
+    onboardingQuestion("Qual e o seu nome?");
+    data.userName = (await terminal.question("  -> ")).trim();
+    if (data.userName) onboardingInfo(`Prazer, ${data.userName}!\n`);
+
+    onboardingQuestion("Seu e-mail (para contato e login em servicos)?");
+    data.userEmail = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Seu WhatsApp (com DDD)?");
+    data.userPhone = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Seu Instagram (se tiver)?");
+    data.userInstagram = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Onde voce esta? (cidade/estado)");
+    data.userLocation = (await terminal.question("  -> ")).trim();
+
+    onboardingSep();
+
+    // ━━━ FASE 2: Seu negocio ━━━
+    onboardingPhase(2, "Seu negocio", TOTAL_PHASES);
+    onboardingHint("Essas informacoes definem o contexto do projeto e sao usadas pela IA para tomar decisoes de design e conteudo.");
+    onboardingQuestion("Qual e o nome do seu negocio/empresa?");
+    data.businessName = (await terminal.question("  -> ")).trim();
+    if (data.businessName) onboardingInfo(`Negocio: ${data.businessName}\n`);
+
+    onboardingQuestion("Em que area/industria voce atua? (ex: consultoria, e-commerce, educacao, saude)");
+    data.businessIndustry = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Descreva seu negocio em 2-3 frases: o que faz, como ajuda, por que existe.");
+    data.businessDescription = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Ha quanto tempo seu negocio existe?");
+    data.businessAge = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Qual o porte? (1 pessoa / pequena equipe 2-5 / media 6-20 / grande 20+)");
+    data.businessSize = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Onde fica seu negocio? (cidade/estado ou 'online/100% digital')");
+    data.businessLocation = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Voce ja tem site? Se sim, qual a URL?");
+    data.businessWebsite = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quais redes sociais o negocio usa? (ex: @instagram, facebook.com/perfil)");
+    data.businessSocial = (await terminal.question("  -> ")).trim();
+
+    onboardingSep();
+
+    // ━━━ FASE 3: Objetivos e visao ━━━
+    onboardingPhase(3, "Objetivos e visao", TOTAL_PHASES);
+    onboardingHint("Essas informacoes guiam a estrategia do projeto. A IA usa para definir CTAs, copy e hierarquia de conteudo.");
+    onboardingQuestion("Qual e o principal objetivo do seu negocio agora? (ex: aumentar vendas, captar leads, fortalecer marca)");
+    data.mainGoal = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("O que voce quer alcancar com um projeto digital? (ex: vender online, mostrar portfolio, automatizar atendimento)");
+    data.digitalGoal = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Qual e o maior desafio do seu negocio hoje?");
+    data.mainChallenge = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Onde voce se ve daqui 1 ano com o projeto certo?");
+    data.visionOneYear = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Como voce vai medir se o projeto deu certo? (ex: vendas, contatos, engajamento)");
+    data.successMetric = (await terminal.question("  -> ")).trim();
+
+    onboardingSep();
+
+    // ━━━ FASE 4: Publico-alvo ━━━
+    onboardingPhase(4, "Publico-alvo", TOTAL_PHASES);
+    onboardingHint("Conhecer o publico e essencial para a skill de design recomendar o estilo visual, paleta de cores e tipografia corretos.");
+    onboardingQuestion("Quem e seu cliente ideal? (descreva em 1-2 frases)");
+    data.targetAudience = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Qual a faixa etaria do seu publico? (ex: 25-40 anos)");
+    data.audienceAge = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Genero predominante? (masculino / feminino / ambos / nao-binario / todos)");
+    data.audienceGender = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Classe social / faixa de renda do publico? (classe A, B, C, misto)");
+    data.audienceClass = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quais sao as principais dores ou necessidades desse publico?");
+    data.audiencePains = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Onde esse publico esta? (Instagram, Google, WhatsApp, eventos, etc.)");
+    data.audienceWhere = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Como esse publico te encontra hoje? (indicacao, busca, anuncio, organico)");
+    data.audienceFindYou = (await terminal.question("  -> ")).trim();
+
+    onboardingSep();
+
+    // ━━━ FASE 5: Modelo de negocio ━━━
+    onboardingPhase(5, "Modelo de negocio", TOTAL_PHASES);
+    onboardingHint("Entender como voce fatura ajuda a definir a estrutura do projeto: precificacao, checkout, funil de vendas.");
+    onboardingQuestion("Como voce fatura? (por hora, por produto, assinatura, projeto, comissao)");
+    data.revenueModel = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quais sao seus principais produtos ou servicos?");
+    data.mainProducts = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Qual a faixa de preco dos seus servicos/produtos?");
+    data.priceRange = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Qual o ticket medio (valor medio por cliente)?");
+    data.averageTicket = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quem sao seus principais concorrentes? (nomes ou URLs)");
+    data.competitors = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Qual e o seu diferencial? Por que alguem escolhe voce e nao o concorrente?");
+    data.differentiator = (await terminal.question("  -> ")).trim();
+
+    onboardingSep();
+
+    // ━━━ FASE 6: Projeto digital ━━━
+    onboardingPhase(6, "Projeto digital", TOTAL_PHASES);
+    onboardingHint("O tipo de projeto define qual template sera usado. Se nao souber, vou te ajudar a escolher.");
+
+    console.log("  " + color("37", "Tipos de projeto disponiveis:\n"));
+    console.log("  " + color("1;37", "1.") + " Site premium (landing page, institucional, portfolio)");
+    console.log("  " + color("1;37", "2.") + " Aplicacao / dashboard (SaaS, sistema web, produto digital)");
+    console.log("  " + color("1;37", "3.") + " Carrossel social editavel (Instagram / LinkedIn)");
+    console.log("  " + color("1;37", "4.") + " CRM com WhatsApp (inbox, contatos, pipeline, automacoes)");
+    console.log("  " + color("1;37", "5.") + " Ainda nao sei / me ajude a escolher\n");
+
+    onboardingQuestion("Que tipo de projeto voce quer criar? [1-5]");
+    const typeChoice = (await terminal.question("  -> ")).trim();
+    const typeMap = { "1": "site", "2": "app", "3": "carousel", "4": "crm", "5": "auto" };
+    data.projectType = typeMap[typeChoice] || normalizeType(typeChoice) || "auto";
+
+    if (data.projectType === "auto") {
+      console.log();
+      console.log("  " + color("36", "Sem problemas! Vou te ajudar a escolher.\n"));
+
+      onboardingQuestion("Voce quer vender algo online, mostrar seu trabalho ou gerenciar clientes?");
+      const intent = (await terminal.question("  -> ")).trim().toLowerCase();
+
+      if (/vend|produt|loja|e-commerce|compr/.test(intent)) {
+        data.projectType = "app";
+        console.log("  " + color("36", "-> Uma aplicacao/dashboard seria ideal para vender online.\n"));
+      } else if (/mostr|portfolio|institucional|landing|pagina/.test(intent)) {
+        data.projectType = "site";
+        console.log("  " + color("36", "-> Um site premium seria perfeito para mostrar seu trabalho.\n"));
+      } else if (/client|relacionamento|whatsapp|vendas|funil|crm|pipeline/.test(intent)) {
+        data.projectType = "crm";
+        console.log("  " + color("36", "-> Um CRM com WhatsApp seria ideal para gerenciar seus clientes.\n"));
+      } else if (/social|instagram|carrossel|conteudo|post/.test(intent)) {
+        data.projectType = "carousel";
+        console.log("  " + color("36", "-> Um estudo de carrossel seria perfeito para criar conteudo.\n"));
+      } else {
+        data.projectType = "site";
+        console.log("  " + color("36", "-> Comecando com um site premium, que e versatil e rapido de lancar.\n"));
+      }
+    }
+
+    const typeLabel = { site: "Site premium", app: "Aplicacao", carousel: "Carrossel", crm: "CRM com WhatsApp" }[data.projectType] || "Projeto";
+    onboardingInfo(`Tipo selecionado: ${typeLabel}\n`);
+
+    onboardingQuestion("Qual o nome do projeto?");
+    data.projectName = (await terminal.question("  -> ")).trim();
+    if (!data.projectName) data.projectName = data.businessName;
+
+    onboardingQuestion("Qual o objetivo principal do projeto? (ex: captar clientes, vender produto X, automatizar atendimento)");
+    data.projectObjective = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quais funcionalidades sao essenciais na primeira versao? (liste separado por virgula)");
+    data.projectFeatures = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quais paginas ou secoes o projeto precisa? (ex: home, sobre, servicos, blog, contato)");
+    data.projectPages = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Tem algum site/app que admira como referencia? (URL ou nome)");
+    data.projectReferences = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Precisa de alguma integracao? (ex: Supabase, WhatsApp API, Stripe, pagamento, e-mail)");
+    data.projectIntegrations = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Alguma restricao tecnica? (ex: nao usar frameworks especificos, manter custo zero)");
+    data.projectConstraints = (await terminal.question("  -> ")).trim();
+
+    onboardingSep();
+
+    // ━━━ FASE 7: Identidade visual ━━━
+    onboardingPhase(7, "Identidade visual", TOTAL_PHASES);
+    onboardingHint("Essas informacoes sao cruzadas com a skill ui-ux-pro-max para gerar recomendacoes de design personalizadas.");
+    onboardingQuestion("Qual nome a marca vai usar? (pode ser diferente do nome do negocio)");
+    data.brandName = (await terminal.question("  -> ")).trim();
+    if (!data.brandName) data.brandName = data.businessName;
+
+    onboardingQuestion("Qual o tom de voz da marca? (ex: profissional, informal, ousado, acolhedor, tecnico)");
+    data.brandTone = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Se a marca fosse uma pessoa, como voce a descreveria? (ex: confiante, moderna, acessivel)");
+    data.brandPersonality = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quais cores a marca usa? (ex: azul e branco, preto e dourado)");
+    data.brandColors = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Cor de destaque em hex (ex: #ff5a1f) ou Enter para usar o padrao:");
+    data.brandAccent = (await terminal.question("  -> ")).trim() || "#ff5a1f";
+    try {
+      data.brandAccent = normalizeHexColor(data.brandAccent);
+    } catch {
+      data.brandAccent = "#ff5a1f";
+    }
+
+    onboardingQuestion("Ja tem logo? (sim/nao/caminho do arquivo)");
+    data.hasLogo = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Ja tem favicon? (sim/nao/caminho do arquivo)");
+    data.hasFavicon = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Alguma referencia visual? (sites, cores, estilos que gosta)");
+    data.visualReferences = (await terminal.question("  -> ")).trim();
+
+    onboardingSep();
+
+    // ━━━ FASE 8: Aspectos tecnicos ━━━
+    onboardingPhase(8, "Aspectos tecnicos", TOTAL_PHASES);
+    onboardingHint("Informacoes tecnicas ajudam a configurar o projeto corretamente desde o inicio.");
+    onboardingQuestion("Ja tem hospedagem? (ex: Vercel, Netlify, AWS, servidor proprio)");
+    data.currentHosting = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Ja tem dominio registrado? (ex: meusite.com.br)");
+    data.domain = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Usa alguma plataforma hoje? (ex: WordPress, Wix, Shopify)");
+    data.currentPlatform = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Precisa de SEO otimizado? [S/n]");
+    data.needsSEO = (await terminal.question("  -> ")).trim();
+    if (!data.needsSEO || data.needsSEO.toLowerCase() === "s") data.needsSEO = "Sim";
+    else data.needsSEO = "Nao";
+
+    onboardingQuestion("Precisa de analytics/rastreamento? [S/n]");
+    data.needsAnalytics = (await terminal.question("  -> ")).trim();
+    if (!data.needsAnalytics || data.needsAnalytics.toLowerCase() === "s") data.needsAnalytics = "Sim";
+    else data.needsAnalytics = "Nao";
+
+    onboardingQuestion("Em quais idiomas o projeto precisa? (ex: portugues, ingles, espanhol)");
+    data.languages = (await terminal.question("  -> ")).trim() || "Portugues (pt-BR)";
+
+    onboardingQuestion("Algum requisito de acessibilidade? (ex: WCAG 2.1, contraste alto, leitor de tela)");
+    data.accessibility = (await terminal.question("  -> ")).trim() || "Padrao WCAG";
+
+    onboardingSep();
+
+    // ━━━ FASE 9: Presenca digital atual ━━━
+    onboardingPhase(9, "Presenca digital", TOTAL_PHASES);
+    onboardingHint("Entender sua presenca atual ajuda a definir o que integrar e o que criar do zero.");
+    onboardingQuestion("Ja tem site funcionando? Se sim, qual URL?");
+    data.hasWebsite = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quais redes sociais esta ativo? (ex: Instagram, TikTok, LinkedIn, Facebook)");
+    data.activeSocialMedia = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Com que frequencia publica? (diario, semanal, mensal, esporadicamente)");
+    data.postingFrequency = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Usa e-mail marketing? (ex: Mailchimp, RD Station, ActiveCampaign)");
+    data.emailMarketing = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Ja tem lista de contatos/e-mails de clientes?");
+    data.contactList = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Usa WhatsApp Business? (sim/nao)");
+    data.whatsappBusiness = (await terminal.question("  -> ")).trim();
+
+    onboardingSep();
+
+    // ━━━ FASE 10: Proximos passos ━━━
+    onboardingPhase(10, "Proximos passos", TOTAL_PHASES);
+    onboardingHint("Essas informacoes definem a prioridade e o escopo do projeto.");
+    onboardingQuestion("Qual a urgencia? (urgente essa semana / 1 mes / 3 meses / sem pressa)");
+    data.urgency = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Qual o orcamento estimado para o projeto? (faixa ou 'sem definir')");
+    data.budget = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Qual o prazo desejado para lancar?");
+    data.deadline = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quem toma a decisao final no projeto? (voce / socio / investidor)");
+    data.decisionMaker = (await terminal.question("  -> ")).trim() || "O proprio usuario";
+
+    onboardingQuestion("Tem alguem com conhecimento tecnico na equipe? [S/n]");
+    data.hasTechTeam = (await terminal.question("  -> ")).trim();
+
+    onboardingQuestion("Quer gerenciar o projeto sozinho depois de pronto? [S/n]");
+    data.selfManage = (await terminal.question("  -> ")).trim();
+    if (!data.selfManage || data.selfManage.toLowerCase() === "s") data.selfManage = "Sim";
+    else data.selfManage = "Nao";
+
+    onboardingSep();
+
+    // ━━━ DESIGN INTELIGENTE (usando skill ui-ux-pro-max) ━━━
+    console.log();
+    console.log(color("1;38;5;208", "  === BONUS: Design Inteligente ===\n"));
+    onboardingInfo("Analisando suas respostas com a skill ui-ux-pro-max...\n");
+
+    const designRecs = generateDesignRecommendations(data);
+
+    if (designRecs.product) {
+      console.log(color("1;37", "  Produto recomendado:"));
+      console.log(color("37", `    Categoria: ${designRecs.product["Product Type"]}`));
+      console.log(color("37", `    Estilo: ${designRecs.product["Primary Style Recommendation"]}`));
+      console.log(color("37", `    Cores: ${designRecs.product["Color Palette Focus"]}`));
+      console.log(color("37", `    Landing: ${designRecs.product["Landing Page Pattern"]}`));
+      console.log(color("37", `    Dica: ${designRecs.product["Key Considerations"]}\n`));
+    }
+
+    if (designRecs.typography) {
+      console.log(color("1;37", "  Tipografia recomendada:"));
+      console.log(color("37", `    Par: ${designRecs.typography["Font Pairing Name"]}`));
+      console.log(color("37", `    Titulo: ${designRecs.typography["Heading Font"]}`));
+      console.log(color("37", `    Corpo: ${designRecs.typography["Body Font"]}`));
+      console.log(color("37", `    Mood: ${designRecs.typography["Mood/Style Keywords"]}\n`));
+    }
+
+    if (designRecs.style) {
+      console.log(color("1;37", "  Estilo visual:"));
+      console.log(color("37", `    Categoria: ${designRecs.style["Style Category"]}`));
+      console.log(color("37", `    Melhor para: ${designRecs.style["Best For"]}`));
+      console.log(color("37", `    Performance: ${designRecs.style.Performance}`));
+      console.log(color("37", `    Acessibilidade: ${designRecs.style.Accessibility}\n`));
+    }
+
+    if (designRecs.reasoning) {
+      console.log(color("1;37", "  Regras por industria:"));
+      console.log(color("37", `    Anti-padroes: ${designRecs.reasoning.Anti_Patterns}\n`));
+    }
+
+    // ━━━ SALVAR CONTEXTO ━━━
+    console.log();
+    console.log(color("1;38;5;208", "  === Salvando contexto ===\n"));
+
+    const contextDir = join(process.cwd(), "_contexto");
+    mkdirSync(contextDir, { recursive: true });
+
+    const contextPath = join(contextDir, "onboarding.md");
+    const contextContent = generateOnboardingContext(data);
+    writeFileSync(contextPath, contextContent, "utf8");
+    onboardingInfo(`Contexto salvo em: ${contextPath}`);
+
+    if (designRecs.product || designRecs.typography || designRecs.style) {
+      const designPath = join(contextDir, "design-recommendations.md");
+      const designContent = generateDesignMarkdown(designRecs, data);
+      writeFileSync(designPath, designContent, "utf8");
+      onboardingInfo(`Recomendacoes de design salvas em: ${designPath}`);
+    }
+
+    const brandPath = join(contextDir, "brand-kit.md");
+    const brandContent = generateBrandKitMarkdown(data);
+    writeFileSync(brandPath, brandContent, "utf8");
+    onboardingInfo(`Brand Kit salvo em: ${brandPath}\n`);
+
+    // ━━━ RESUMO ━━━
+    console.log();
+    console.log(color("1;38;5;208", "  ╔══════════════════════════════════════════════════════════╗"));
+    console.log(color("1;38;5;208", "  ║") + color("1;37", "                    RESUMO DO ONBOARDING                   ") + color("1;38;5;208", "  ║"));
+    console.log(color("1;38;5;208", "  ╚══════════════════════════════════════════════════════════╝\n"));
+
+    console.log(color("37", `  Usuario:      ${data.userName || "---"}`));
+    console.log(color("37", `  Negocio:      ${data.businessName || "---"}`));
+    console.log(color("37", `  Area:         ${data.businessIndustry || "---"}`));
+    console.log(color("37", `  Objetivo:     ${data.mainGoal || "---"}`));
+    console.log(color("37", `  Publico:      ${data.targetAudience || "---"}`));
+    console.log(color("37", `  Projeto:      ${typeLabel} -- "${data.projectName || "---"}"`));
+    console.log(color("37", `  Marca:        ${data.brandName || "---"}`));
+    console.log(color("37", `  Cor:          ${data.brandAccent}`));
+    console.log(color("37", `  Urgencia:     ${data.urgency || "---"}`));
+    console.log(color("37", `  Orcamento:    ${data.budget || "---"}`));
+    console.log();
+
+    // ━━━ CRIAR PROJETO ━━━
+    onboardingQuestion("Quer que eu crie o projeto agora com base nesse contexto? [S/n]");
+    const shouldCreate = (await terminal.question("  -> ")).trim();
+
+    if (!shouldCreate || shouldCreate.toLowerCase() === "s" || shouldCreate.toLowerCase() === "sim") {
+      console.log();
+      onboardingInfo("Perfeito! Criando seu projeto...\n");
+
+      const resolvedType = normalizeType(data.projectType);
+      if (!resolvedType || !data.projectName) {
+        ui.warn("Nao foi possivel criar o projeto automaticamente. Use supermotor criar com os dados do onboarding.");
+        console.log(`\n  Exemplo: supermotor criar ${data.projectType} "${data.projectName || "Nome do Projeto"}"`);
+      } else {
+        const slug = slugify(data.projectName);
+        const destination = join(DEFAULT_OUTPUT, slug);
+
+        if (existsSync(destination)) {
+          ui.warn(`Ja existe um projeto com o nome "${data.projectName}" em projetos/${slug}`);
+          console.log(`  Use supermotor criar ${resolvedType} "${data.projectName}" --saida <caminho>`);
+        } else {
+          const answers = {
+            name: data.projectName,
+            brief: data.projectObjective || "Criar uma experiencia digital memoravel, clara e orientada a resultado.",
+            success: data.successMetric || "O fluxo principal funciona de ponta a ponta, com clareza, qualidade e validacao real.",
+            essentials: data.projectFeatures || "Experiencia principal completa, estados de erro e vazio, responsividade e acessibilidade.",
+            constraints: data.projectConstraints || "Preservar seguranca, desempenho, identidade da marca e compatibilidade mobile.",
+            brandName: data.brandName || data.businessName || data.projectName,
+            audience: data.targetAudience || DEFAULT_BRAND.audience,
+            tone: data.brandTone || DEFAULT_BRAND.tone,
+            accent: data.brandAccent || DEFAULT_BRAND.accent,
+            favicon: data.hasFavicon && data.hasFavicon !== "nao" && data.hasFavicon !== "Nao" ? data.hasFavicon : "auto",
+          };
+
+          if (resolvedType === "crm") {
+            const parsed = { positionals: ["criar", resolvedType, data.projectName], options: { rapido: false } };
+            createCrmProject(destination, answers, slug, parsed);
+          } else {
+            ui.title(`Criando ${TYPES[resolvedType].label}`);
+            ui.info(`Destino: ${destination}`);
+            mkdirSync(destination, { recursive: true });
+
+            const commonTemplate = join(TEMPLATE_ROOT, "common");
+            const typeTemplate = join(TEMPLATE_ROOT, TYPES[resolvedType].template);
+            if (existsSync(commonTemplate) && existsSync(typeTemplate)) {
+              copyTemplate(commonTemplate, destination);
+              copyTemplate(typeTemplate, destination);
+              copyTemplate(join(TEMPLATE_ROOT, "tracking"), join(destination, ".supermotor"));
+              replaceTokens(destination, projectTokens(resolvedType, answers, slug));
+              const faviconSource = createFavicon(destination, answers.favicon, answers.brandName, answers.accent);
+              replaceTokens(destination, { FAVICON_SOURCE: faviconSource });
+              initializeProjectTracking(destination, {
+                projectType: resolvedType,
+                name: data.projectName,
+                objective: data.projectObjective,
+                success: data.successMetric,
+                essentials: data.projectFeatures,
+                constraints: data.projectConstraints,
+                brand: data.brandName || data.businessName,
+                motorVersion: "3.0.0",
+              });
+
+              ui.ok("Starter e contexto de IA criados");
+              ui.ok(`Favicon: ${faviconSource}`);
+              npmInstall(destination);
+
+              const displayPath = relative(process.cwd(), destination) || destination;
+              console.log("\nPronto. Proximos passos:\n");
+              console.log(`  cd "${displayPath}"`);
+              console.log("  npm run dev");
+              console.log("\nDepois, peca a IA:");
+              console.log('  "Leia SUPERPROMPT.md, PRODUCT.md, CONVERSATION.md, BRAND.md, DESIGN.md e QUALITY.md. Registre seu andamento e execute o projeto ate passar em todos os criterios."');
+              console.log(`\n${color("32", "Projeto criado com sucesso:")} ${destination}\n`);
+            }
+          }
+        }
+      }
+    } else {
+      console.log();
+      console.log("  " + color("36", "Sem problemas! O contexto esta salvo em _contexto/onboarding.md"));
+      console.log("  " + color("36", "Tambem foi gerado design-recommendations.md e brand-kit.md"));
+      console.log("  " + color("36", "Quando quiser criar o projeto, use:"));
+      console.log();
+      console.log(`    supermotor criar ${data.projectType} "${data.projectName || "Nome do Projeto"}"`);
+      console.log();
+      console.log("  " + color("36", "Ou retome o onboarding a qualquer momento com:"));
+      console.log("    supermotor onboarding\n");
+    }
+
+  } finally {
+    terminal.close();
+  }
+}
+
+
 function help() {
   console.log(`
 SUPERMOTOR 3.0
 
 Uso:
+  supermotor onboarding
   supermotor criar site "Nome do projeto"
   supermotor criar app "Nome do projeto"
   supermotor criar carrossel "Nome do projeto"
@@ -982,6 +1932,10 @@ Uso:
   supermotor atividade [projeto] --agente "Nome" --status working --acao "O que está fazendo"
   supermotor validar [caminho]
   supermotor doctor
+
+Comandos:
+  onboarding    Assistente interativo que conhece você e seu negócio,
+                depois sugere e cria o projeto ideal
 
 Opções:
   --brief "objetivo"       Define o objetivo do projeto
@@ -1060,6 +2014,11 @@ async function main() {
 
   if (["registrar", "register", "adicionar-projeto", "track"].includes(command)) {
     registerExistingProject(parsed);
+    return;
+  }
+
+  if (["onboarding", "onboard", "conhecer", "intro", "introducao", "introdução"].includes(command)) {
+    await runOnboarding();
     return;
   }
 

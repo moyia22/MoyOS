@@ -130,17 +130,30 @@ function hydrateProject(project) {
   };
 }
 
+function readOnboardingContext() {
+  const contextPath = join(resolve(process.cwd()), "_contexto", "onboarding.md");
+  if (!existsSync(contextPath)) return null;
+  try {
+    return readFileSync(contextPath, "utf8").slice(0, 8000);
+  } catch {
+    return null;
+  }
+}
+
 export function getDashboardState() {
   const projects = listRegisteredProjects().map(hydrateProject);
+  const onboarding = readOnboardingContext();
   return {
     generatedAt: new Date().toISOString(),
     motorVersion: "3.0.0",
     projects,
+    onboarding,
     summary: {
       projects: projects.length,
       activeAgents: projects.reduce((total, project) => total + project.activeAgentCount, 0),
       blockedAgents: projects.reduce((total, project) => total + project.blockedAgentCount, 0),
       recentChanges: projects.reduce((total, project) => total + project.recentFiles.length, 0),
+      hasOnboarding: Boolean(onboarding),
     },
   };
 }
@@ -208,6 +221,12 @@ async function handleRequest(request, response) {
     send();
     const timer = setInterval(send, 2000);
     request.on("close", () => clearInterval(timer));
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/onboarding") {
+    const onboarding = readOnboardingContext();
+    json(response, 200, { onboarding });
     return;
   }
 
