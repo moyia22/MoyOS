@@ -1,66 +1,113 @@
 # MoyOS
 
-O sistema operacional do seu negócio dentro do Claude Code.
+> O sistema operacional do seu negócio dentro do Claude Code.
 
-Você acaba de instalar o MoyOS. Em alguns minutos, sua empresa vai ter uma memória própria, uma identidade visual aplicada em tudo que o sistema gerar, e 15 skills prontas pra fazer marketing, SEO, ads e operação rodarem com você dirigindo.
+MoyOS transforma o Claude Code no sistema operacional da sua empresa. Não é uma ferramenta que você usa — é o ambiente onde seu negócio roda. Cada processo crítico vira um loop fechado: decide, executa, captura, realimenta, ajusta sozinho.
 
-Bora voar.
+---
 
-## Ligando o sistema
+## O ecossistema
 
-Dois caminhos. Escolhe o que combina contigo.
+### SUPERMOTOR — motor de criação
 
-### Pelo Claude (mais rápido)
+Coração do MoyOS. Um comando e nascem projetos completos com código funcional, identidade visual, proteções mobile, contexto pra IA e rastreamento de agentes.
 
-Abre o Claude Code em qualquer pasta e cola:
+```powershell
+.\supermotor.ps1 criar site "Meu Site"       # Landing page premium
+.\supermotor.ps1 criar app "Meu Dashboard"     # Aplicação completa
+.\supermotor.ps1 criar crm "Meu CRM"           # CRM com WhatsApp integrado
+.\supermotor.ps1 criar carrossel "Conteudo"    # Estúdio de carrossel social
+.\supermotor.ps1 painel                        # Control Room — acompanhe tudo
+.\supermotor.ps1 validar ".\projetos\meu-site" # Régua de qualidade
+```
+
+### Skills instaladas
+
+Cada skill ensina os agentes de IA a projetar e codificar dentro dos padrões do MoyOS:
+
+| Skill | Função |
+|-------|--------|
+| **UI/UX Pro Max** | 67 estilos, 96 paletas, 57 font pairings, 25 gráficos, 13 stacks |
+| **Frontend Design** | Direção visual profissional — hierarquia, espaçamento, componentes, acessibilidade |
+| **Awesome Design MD** | Design engineering — estética com performance, entregas sem débito técnico |
+| **Mazyos Master Context** | Identidade, tom e regras do MoyOS — gancho, conteúdo, exemplo, CTA |
+
+### Bibliotecas em `libs/`
+
+| Biblioteca | Função |
+|------------|--------|
+| **Impeccable** | Auditoria visual. Consistência em cada tela. |
+| **Ponytail** | Simplificação de código. Menos complexidade, mais resultado. |
+| **Fallow** | Análise de qualidade arquitetural. |
+| **Graphify** | Visualização de dados e dashboards. |
+| **GSD Core** | Fluxo do briefing ao deploy. |
+| **ECC** | Padrões de engenharia e boas práticas. |
+| **MazyOS** | Memória, identidade e referência da marca. |
+
+### Projetos
+
+**Site premium** — Next.js + TypeScript + Tailwind. Landing page responsiva com design system, metadados, favicon e SEO.
+
+**Aplicação** — Dashboard interativo com navegação, métricas, formulários com Zod, estados de loading/erro/vazio. Arquitetura feature-first.
+
+**CRM com WhatsApp** (wacrm) — CRM completo integrado à API oficial do WhatsApp Business. Inbox compartilhado, pipeline Kanban, contatos, broadcasts, automações no-code, assistente de IA com base de conhecimento própria, times com papéis, API REST e servidor MCP. Baseado em Next.js + Supabase + Tailwind.
+
+**Estúdio de carrossel** — 6 slides editáveis com exportação PNG 1080×1350. Narrativa: gancho, problema, solução, prova, oferta, CTA.
+
+### Control Room
+
+Painel local em `http://127.0.0.1:4545` para acompanhar projetos, agentes e atividades em tempo real. Cada projeto inclui `.supermotor/agent.mjs` pra agentes registrarem andamento automaticamente.
+
+---
+
+## Comandos do dia a dia
+
+```
+/abrir               Carrega o contexto antes de cada sessão
+/salvar              Commit + push no GitHub
+/atualizar           Varre o projeto e atualiza a memória
+/novo-projeto        Cria pasta isolada pra cada cliente
+/mapear-rotinas      Descobre o que você repete e vira skill
+/carrossel           Cria carrosséis 1080×1350 com a identidade da marca
+/publicar-tema       Artigo de blog + carrossel + 3 legendas
+/seo                 Fluxo completo de SEO (8 passos)
+/responder-avaliacoes Respostas humanas pra reviews do Google
+/aprovar-post        Publica blog + Instagram + Facebook num comando
+/anuncio-google      Monta campanha em CSV pro Google Ads Editor
+/relatorio-ads       Relatório semanal de Google + Meta Ads
+/analisar-dados      Resume CSV, XLSX ou PDF em relatório executivo
+/email-profissional  Rascunha email a partir de contexto livre
+```
+
+---
+
+## Como o MoyOS pensa
+
+`_memoria/` é o cérebro. Tudo que importa do seu negócio mora aqui — quem é a empresa, como ela fala, o que tá em foco. O Claude lê isso antes de cada resposta.
+
+`identidade/` é o rosto. Cores, fontes, logo, padrão visual. Toda peça que o sistema gera respeita isso.
+
+`marketing/`, `saidas/` e `scripts/` são o resultado. O sistema produz, versiona no GitHub, fica tudo seu.
+
+---
+
+## Começar
+
+Cole no Claude Code:
 
 ```
 Clona o https://github.com/moyia22/MoyOS.git na pasta atual,
 entra nela e roda o /instalar.
 ```
 
-Ele clona, entra na pasta nova e dispara a entrevista de setup. Você só responde.
+Ou manualmente:
 
-### Pelo terminal (mais previsível)
-
-```
+```bash
 git clone https://github.com/moyia22/MoyOS.git
 cd MoyOS
 code .
 ```
 
-Na janela do VS Code que abrir: terminal integrado → `claude` → `/instalar`.
+Depois: terminal integrado → `claude` → `/instalar`.
 
-Quando o `/instalar` terminar, renomeia a pasta `MoyOS/` pro nome do teu negócio (fecha o VS Code, renomeia no Explorer/Finder, abre de novo). A pasta não fica como "MoyOS" — ela é o teu negócio agora.
-
-O `/instalar` roda uma vez só. Te entrevista sobre o negócio, monta a memória e configura o sistema. Depois disso, é só usar.
-
-## O sistema
-
-**Núcleo — o jeito de operar o dia a dia**
-`/abrir` carrega o contexto antes de cada sessão de trabalho · `/salvar` faz commit + push no GitHub · `/atualizar` varre o projeto e atualiza a memória · `/novo-projeto` cria pasta isolada pra cada cliente ou iniciativa · `/mapear-rotinas` descobre o que você repete e transforma em skill personalizada.
-
-**Conteúdo e SEO — vitrine pública da empresa**
-`/carrossel` cria carrosséis 1080×1350 com identidade da marca (com ou sem foto IA) · `/publicar-tema` pega um tema e entrega artigo de blog + carrossel + 3 legendas amarradas · `/seo` roda fluxo completo de 8 passos (demanda, concorrência, GMB, on-page, conteúdo, ads, monitoramento, GEO) · `/responder-avaliacoes` escreve respostas humanas pras reviews do Google · `/aprovar-post` publica blog + Instagram + Facebook num comando.
-
-**Anúncios pagos — onde o dinheiro entra**
-`/anuncio-google` monta a campanha inteira em CSV pronto pra importar no Google Ads Editor · `/relatorio-ads` lê os exports de Google + Meta e devolve relatório semanal com alertas e recomendações.
-
-**Produção — ferramentas do dia a dia**
-`/analisar-dados` lê CSV/XLSX/PDF e gera resumo executivo · `/email-profissional` rascunha email a partir de contexto livre.
-
-## A tese
-
-IA não é uma ferramenta que sua empresa usa. É o sistema operacional em que ela roda.
-
-A diferença não é velocidade. É capacidade nova — uma pessoa com IA constrói o que antes exigia time inteiro. Cada processo crítico que hoje roda em open loop (decide → executa → não mede → repete cego) vira closed loop dentro do MoyOS (decide → executa → captura → realimenta → ajusta sozinho).
-
-O sistema não substitui você. Vira parte da sua empresa.
-
-## Como o MoyOS pensa
-
-`_memoria/` é o cérebro. Tudo que importa do seu negócio mora aqui — quem é a empresa, como ela fala, o que tá em foco essa semana. O Claude lê isso antes de cada resposta. Quanto melhor a memória, melhor o sistema.
-
-`identidade/` é o rosto. Cores, fontes, logo, padrão visual. Todo carrossel, slide, peça que o sistema gera respeita isso.
-
-`marketing/`, `saidas/` e `scripts/` são o resultado. O sistema produz, versiona no GitHub, fica tudo seu.
+Quando o `/instalar` terminar, renomeie a pasta `MoyOS/` pro nome do seu negócio. A pasta não fica como "MoyOS" — ela é o seu negócio agora.
