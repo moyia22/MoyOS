@@ -8,6 +8,7 @@ import { normalizeHexColor, findBrandReferences, generateBrandKitMarkdown, creat
 import { generateDesignRecommendations, generateSuggestions, generateDesignMarkdown, generateSuggestionsMarkdown, generateProjectContextFromOnboarding } from "./design.mjs";
 import { replaceTokens, projectTokens, replaceTokensInFile } from "./tokens.mjs";
 import { copyTemplate, npmInstall, commandExists, runGit } from "./templates.mjs";
+import { loadConfig } from "./config.mjs";
 import { createProjectFromAnswers } from "./project.mjs";
 import { initializeProjectTracking } from "../supermotor-state.mjs";
 import { ROOT, TEMPLATE_ROOT, TYPES, WACRM_REPOSITORY, WACRM_STABLE_REF, DEFAULT_BRAND } from "./constants.mjs";
@@ -505,11 +506,12 @@ async function runOnboarding() {
       await ask(null, "Se a marca fosse uma pessoa, como voce a descreveria? (ex: confiante, moderna)", "brandPersonality");
       await ask(null, "Quais cores a marca usa? (ex: azul e branco, preto e dourado)", "brandColors");
 
+      const cfg = loadConfig();
       await ask(
         "A cor de destaque e usada em botoes, links e elementos de acao. Ela e o coracao da paleta.",
-        "Cor de destaque em hex (ex: #ff5a1f) ou Enter para usar o padrao:",
+        `Cor de destaque em hex (ex: #ff5a1f) ou Enter para usar o padrao [${cfg.brand?.accent || "#ff5a1f"}]:`,
         "brandAccent",
-        "#ff5a1f"
+        cfg.brand?.accent || "#ff5a1f"
       );
       try {
         data.brandAccent = normalizeHexColor(data.brandAccent);
@@ -750,7 +752,8 @@ async function runOnboarding() {
         console.log(`\n  Exemplo: supermotor criar ${data.projectType} "${data.projectName || "Nome do Projeto"}"`);
       } else {
         const slug = slugify(data.projectName);
-        const destination = join(DEFAULT_OUTPUT, slug);
+        const cfg = loadConfig();
+        const destination = join(cfg.defaultOutputDir || DEFAULT_OUTPUT, slug);
 
         if (existsSync(destination)) {
           ui.warn(`Ja existe um projeto com o nome "${data.projectName}" em projetos/${slug}`);
@@ -763,9 +766,9 @@ async function runOnboarding() {
             essentials: data.projectFeatures || "Experiencia principal completa, estados de erro e vazio, responsividade e acessibilidade.",
             constraints: data.projectConstraints || "Preservar seguranca, desempenho, identidade da marca e compatibilidade mobile.",
             brandName: data.brandName || data.businessName || data.projectName,
-            audience: data.targetAudience || DEFAULT_BRAND.audience,
-            tone: data.brandTone || DEFAULT_BRAND.tone,
-            accent: data.brandAccent || DEFAULT_BRAND.accent,
+            audience: data.targetAudience || cfg.brand?.audience || DEFAULT_BRAND.audience,
+            tone: data.brandTone || cfg.brand?.tone || DEFAULT_BRAND.tone,
+            accent: data.brandAccent || cfg.brand?.accent || DEFAULT_BRAND.accent,
             favicon: data.hasFavicon && data.hasFavicon.toLowerCase() !== "nao" && data.hasFavicon.toLowerCase() !== "n" ? data.hasFavicon : "auto",
           };
 

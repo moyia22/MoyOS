@@ -143,8 +143,9 @@ async function main() {
       return;
     }
     const { startDashboard } = await import("./dashboard-server.mjs");
+    const cfg = loadConfig();
     await startDashboard({
-      port: Number(parsed.options.porta || parsed.options.port || 4545),
+      port: Number(parsed.options.porta || parsed.options.port || cfg.port),
       open: !Boolean(parsed.options["nao-abrir"] || parsed.options["não-abrir"] || parsed.options["no-open"]),
     });
     return;

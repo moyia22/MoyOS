@@ -10,6 +10,21 @@ import { normalizeHexColor, validateFaviconInput, createFavicon, createCrmFavico
 import { replaceTokens, replaceTokensInFile, projectTokens, collectFiles } from "./tokens.mjs";
 import { copyTemplate, npmInstall, commandExists, runGit } from "./templates.mjs";
 import { initializeProjectTracking } from "../supermotor-state.mjs";
+import { loadConfig } from "./config.mjs";
+
+function outputDir() {
+  const cfg = loadConfig();
+  return cfg.defaultOutputDir || DEFAULT_OUTPUT;
+}
+
+function brandDefaults() {
+  const cfg = loadConfig();
+  return {
+    audience: cfg.brand?.audience || DEFAULT_BRAND.audience,
+    tone: cfg.brand?.tone || DEFAULT_BRAND.tone,
+    accent: cfg.brand?.accent || DEFAULT_BRAND.accent,
+  };
+}
 
 async function createProjectFromAnswers(type, answers, slug, destination, options = {}) {
   ui.debug(`Tipo: ${type}, Nome: ${answers.name}, Slug: ${slug}`);
@@ -221,9 +236,9 @@ async function promptForMissing(type, name, brief, options = {}) {
     const essentials = options.essenciais || answers.shift() || "Experi\u00eancia principal completa, estados de erro e vazio, responsividade e acessibilidade.";
     const constraints = options.restricoes || options["restri\u00e7\u00f5es"] || answers.shift() || "Preservar seguran\u00e7a, desempenho, identidade da marca e compatibilidade mobile.";
     const brandName = options.marca || answers.shift() || resolvedName;
-    const audience = options.publico || options["p\u00fablico"] || answers.shift() || DEFAULT_BRAND.audience;
-    const tone = options.tom || answers.shift() || DEFAULT_BRAND.tone;
-    const accent = normalizeHexColor(options.cor || answers.shift() || DEFAULT_BRAND.accent);
+    const audience = options.publico || options["p\u00fablico"] || answers.shift() || brandDefaults().audience;
+    const tone = options.tom || answers.shift() || brandDefaults().tone;
+    const accent = normalizeHexColor(options.cor || answers.shift() || brandDefaults().accent);
     const favicon = options.favicon || answers.shift() || "auto";
     return { type: resolvedType, name: resolvedName, brief: resolvedBrief, success, essentials, constraints, brandName, audience, tone, accent, favicon };
   }
@@ -251,9 +266,9 @@ async function promptForMissing(type, name, brief, options = {}) {
     let essentials = options.essenciais || "Experi\u00eancia principal completa, estados de erro e vazio, responsividade e acessibilidade.";
     let constraints = options.restricoes || options["restri\u00e7\u00f5es"] || "Preservar seguran\u00e7a, desempenho, identidade da marca e compatibilidade mobile.";
     let brandName = options.marca || resolvedName;
-    let audience = options.publico || options["p\u00fablico"] || DEFAULT_BRAND.audience;
-    let tone = options.tom || DEFAULT_BRAND.tone;
-    let accent = options.cor || DEFAULT_BRAND.accent;
+    let audience = options.publico || options["p\u00fablico"] || brandDefaults().audience;
+    let tone = options.tom || brandDefaults().tone;
+    let accent = options.cor || brandDefaults().accent;
 
     if (!options.rapido && !options["modo-r\u00e1pido"]) {
       success = options.sucesso || (await terminal.question("Como saberemos que o projeto deu certo? (opcional): ")).trim() || success;
@@ -262,9 +277,9 @@ async function promptForMissing(type, name, brief, options = {}) {
       const customize = (await terminal.question("Personalizar a marca agora? [S/n]: ")).trim().toLowerCase();
       if (!["n", "nao", "n\u00e3o"].includes(customize)) {
         brandName = options.marca || (await terminal.question(`Nome da marca [${resolvedName}]: `)).trim() || resolvedName;
-        audience = options.publico || options["p\u00fablico"] || (await terminal.question("P\u00fablico principal (opcional): ")).trim() || DEFAULT_BRAND.audience;
-        tone = options.tom || (await terminal.question("Personalidade da marca (opcional): ")).trim() || DEFAULT_BRAND.tone;
-        accent = options.cor || (await terminal.question(`Cor de destaque [${DEFAULT_BRAND.accent}]: `)).trim() || DEFAULT_BRAND.accent;
+        audience = options.publico || options["p\u00fablico"] || (await terminal.question("P\u00fablico principal (opcional): ")).trim() || brandDefaults().audience;
+        tone = options.tom || (await terminal.question("Personalidade da marca (opcional): ")).trim() || brandDefaults().tone;
+        accent = options.cor || (await terminal.question(`Cor de destaque [${brandDefaults().accent}]: `)).trim() || brandDefaults().accent;
       }
     }
 
@@ -312,7 +327,7 @@ async function createProject(parsed) {
           favicon: "auto",
         };
         const slug = slugify(answers.name);
-        const destination = parsed.options.saida ? resolve(process.cwd(), String(parsed.options.saida)) : join(DEFAULT_OUTPUT, slug);
+        const destination = parsed.options.saida ? resolve(process.cwd(), String(parsed.options.saida)) : join(outputDir(), slug);
         if (existsSync(destination)) throw new Error(`O destino ja existe: ${destination}\nDica: use --saida <outro-caminho> ou remova a pasta existente.`);
         await createProjectFromAnswers(resolvedType, answers, slug, destination, {
           injectContext: true,
@@ -342,7 +357,7 @@ async function createProject(parsed) {
   const explicitOutput = parsed.options.saida || parsed.options.output;
   const destination = explicitOutput
     ? resolve(process.cwd(), String(explicitOutput))
-    : join(DEFAULT_OUTPUT, slug);
+    : join(outputDir(), slug);
 
   if (existsSync(destination)) throw new Error(`O destino ja existe: ${destination}\nDica: use --saida <outro-caminho> ou remova a pasta existente.`);
 

@@ -21,6 +21,7 @@ import {
 function recordActivity(parsed) {
   const requestedPath = parsed.positionals[1] || ".";
   const project = resolve(process.cwd(), requestedPath);
+  ui.debug(`Registrando atividade em: ${project}`);
   if (!existsSync(join(project, ".supermotor", "project.json"))) {
     throw new Error(`Projeto SUPERMOTOR nao encontrado em: ${project}\nDica: rode supermotor registrar <pasta> ou supermotor criar para gerar um novo projeto.`);
   }
@@ -232,6 +233,7 @@ function listProjectsCommand(parsed) {
   const jsonOutput = parsed.options.json;
 
   const projects = listRegisteredProjects();
+  ui.debug(`Projetos encontrados: ${projects.length}`);
   if (jsonOutput) {
     const data = projects.map((project) => ({
       name: project.name,

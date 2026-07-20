@@ -2,8 +2,10 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "
 import { join } from "node:path";
 import { TEXT_EXTENSIONS, TYPES } from "./constants.mjs";
 import { mixWithWhite, readableTextColor } from "./brand.mjs";
+import { ui } from "./ui.mjs";
 
 function replaceTokens(directory, tokens) {
+  ui.debug(`Substituindo tokens em: ${directory} (${Object.keys(tokens).length} tokens)`);
   for (const entry of readdirSync(directory)) {
     const fullPath = join(directory, entry);
     try {

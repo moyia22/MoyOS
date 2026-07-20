@@ -4,6 +4,7 @@ O motor de criação do **MoyOS**. Um comando e nascem projetos completos, pront
 
 ```powershell
 .\supermotor.ps1 criar site "Meu Site"
+.\supermotor.ps1 criar landing "Pagina de Vendas"
 .\supermotor.ps1 criar app "Meu Dashboard"
 .\supermotor.ps1 criar crm "Meu CRM"
 .\supermotor.ps1 criar carrossel "Meu Conteudo"
@@ -21,6 +22,7 @@ O motor de criação do **MoyOS**. Um comando e nascem projetos completos, pront
   - [Como skills e libs trabalham juntas](#como-skills-e-libs-trabalham-juntas)
 - [Projetos](#projetos)
   - [Site premium](#site-premium)
+  - [Landing page](#landing-page)
   - [Aplicação](#aplicação)
   - [CRM com WhatsApp](#crm-com-whatsapp-wacrm)
   - [Estúdio de carrossel](#estúdio-de-carrossel)
@@ -35,6 +37,7 @@ O motor de criação do **MoyOS**. Um comando e nascem projetos completos, pront
 - [Brand Kit](#brand-kit)
 - [Mobile](#mobile)
 - [Qualidade](#qualidade)
+- [Configuração](#configuração)
 - [Bootstrap](#bootstrap)
 - [Templates](#templates)
 - [Testes](#testes)
@@ -148,6 +151,26 @@ Landing page responsiva com direção visual editorial e narrativa de conversão
 
 ---
 
+### Landing page
+
+Landing page focada em conversão com hero CTA, seção de benefícios, FAQ, prova social e formulário de contato.
+
+**O que nasce pronto:**
+
+- Next.js + TypeScript + Tailwind CSS
+- Layout responsivo (mobile, tablet, desktop)
+- Seções: hero CTA, benefícios, prova social, FAQ, formulário
+- Brand Kit com cores, tipografia e espaçamento
+- Favicon e proteções mobile
+- Contexto completo de IA
+
+```powershell
+.\supermotor.ps1 criar landing "Pagina de Vendas"
+.\supermotor.ps1 criar landing "Lancamento" --brief "Lançar produto digital"
+```
+
+---
+
 ### Aplicação
 
 Dashboard interativo com navegação, métricas e arquitetura preparada por features.
@@ -240,13 +263,18 @@ Editor visual de carrosséis Instagram/LinkedIn com exportação PNG 1080x1350.
 
 | Comando | Aliases | Descrição |
 |---------|---------|-----------|
-| `criar` | `create`, `novo`, `new` | Cria site, app, carrossel ou crm |
-| `painel` | `dashboard`, `monitor`, `acompanhar` | Abre a Control Room |
+| `criar` | `create`, `novo`, `new` | Cria site, landing, app, carrossel ou crm |
+| `listar` | `list`, `ls`, `projetos` | Lista projetos registrados |
+| `remover` | `remove`, `deletar`, `delete` | Remove projeto do painel |
+| `registrar` | `register`, `track` | Adiciona projeto existente ao painel |
+| `atividades` | `activity`, `events` | Mostra atividades de um projeto |
+| `agentes` | `agents` | Mostra agentes de um projeto |
+| `status` | `stats` | Métricas agregadas de todos os projetos |
+| `painel` | `dashboard`, `monitor` | Abre a Control Room |
 | `validar` | `validate`, `check` | Executa a régua de qualidade |
-| `doctor` | `diagnostico`, `diagnóstico` | Diagnostica a saúde do motor |
-| `registrar` | `register`, `track`, `adicionar-projeto` | Adiciona projeto ao painel |
-| `atividade` | `activity`, `evento`, `event` | Registra atividade manual |
-| `help` | `ajuda`, `--help`, `-h` | Mostra a ajuda |
+| `doctor` | `diagnostico` | Diagnostica a saúde do motor |
+| `config` | `cfg` | Configuração do Supermotor |
+| `atividade` | `event`, `evento` | Registra atividade manual |
 
 ### Opções
 
@@ -269,6 +297,8 @@ Editor visual de carrosséis Instagram/LinkedIn com exportação PNG 1080x1350.
 | `--sem-build` | Validação estática |
 | `--porta "n"` | Porta do painel (4545) |
 | `--nao-abrir` | Painel sem navegador |
+| `--json` | Saída em JSON puro (listar) |
+| `--verbose` | Informações detalhadas de debug |
 
 ### Exemplos
 
@@ -319,11 +349,12 @@ Sem argumentos, o Supermotor abre um assistente guiado:
 SUPERMOTOR — novo projeto
 
 1. Site premium
-2. Aplicação / dashboard
-3. Carrossel social editável
-4. CRM completo com WhatsApp
+2. Landing page
+3. Aplicação / dashboard
+4. Carrossel social editável
+5. CRM completo com WhatsApp
 
-Escolha o tipo [1-4]: _
+Escolha o tipo [1-5]: _
 ```
 
 Fluxo completo:
@@ -352,12 +383,14 @@ A Control Room é o hub visual de todos os seus projetos, agentes e atividades. 
 **O que aparece:**
 
 - Lista de projetos com tipo, nome, objetivo e progresso
+- Health score com breakdown detalhado (atividade, arquivos, agentes, progresso, contexto)
 - Agentes com status visual: planejando, trabalhando, testando, revisando, bloqueado, concluído, pausado
 - Timeline de atividades registradas
 - Arquivos modificados recentemente
 - Contexto completo (objetivo, sucesso, essenciais, restrições)
 - Prompt pra continuar a conversa com IA
 - Formulário de atividade manual
+- Cache offline (localStorage) — dados persistem entre sessões
 
 ### Agentes e atividades
 
@@ -447,6 +480,33 @@ Nenhum `__PROJECT_*__`, `__BRAND_*__`, `__FAVICON_*__` ou `__CRM_*__` pode sobra
 
 ---
 
+## Configuração
+
+Configurações persistidas em `~/.config/supermotor/config.json`:
+
+```powershell
+.\supermotor.ps1 config                        # Mostra configuração atual
+.\supermotor.ps1 config get dashboard.port     # Consulta valor específico
+.\supermotor.ps1 config set dashboard.port 4546  # Altera valor
+.\supermotor.ps1 config set brand.defaultColor "#8b5cf6"  # Cor padrão
+.\supermotor.ps1 config set brand.defaultTom "profissional"  # Tom padrão
+.\supermotor.ps1 config reset                  # Restaura padrões
+```
+
+**Valores padrão:**
+
+| Chave | Padrão | Descrição |
+|-------|--------|-----------|
+| `dashboard.port` | `4545` | Porta do painel |
+| `dashboard.openBrowser` | `true` | Abrir navegador automaticamente |
+| `brand.defaultColor` | `#6366f1` | Cor de destaque |
+| `brand.defaultTom` | `"` | Tom de voz |
+| `project.outputDir` | `.` | Diretório de saída |
+| `project.skipInstall` | `false` | Pular npm install |
+| `project.skipBuild` | `false` | Pular build |
+
+---
+
 ## Bootstrap
 
 ### Automático (agentes)
@@ -479,6 +539,7 @@ Instala regras Cursor, instruções Copilot, skills da comunidade (UI/UX Pro Max
 templates/
   common/         Base compartilhada entre todos os tipos
   site/           Landing page premium
+  landing/        Landing page focada em conversão
   application/    Dashboard e sistemas web
   carousel/       Estúdio de carrossel social
   crm/            Contexto aplicado sobre o wacrm
@@ -501,16 +562,12 @@ Tokens `__PROJECT_*__`, `__BRAND_*__`, `__FAVICON_*__`, `__CRM_*__` substituído
 npm test
 ```
 
-Cria todos os quatro tipos de projeto em área temporária isolada. Verifica:
+84 testes automatizados (68 unitários + 16 integração) cobrindo:
 
-- Arquivos obrigatórios
-- Tokens substituídos
-- Proteções mobile
-- Favicon
-- Validação estática
-- Agentes registram atividades
-- Painel funciona em porta isolada
-- CRM com repositório simulado
+- Módulos: brand, tokens, csv, constants, project
+- Integração: 5 tipos de projeto, validação, state, doctor, verbose, tokens, JSON
+- Smoke test e dashboard test
+- CI/CD: GitHub Actions (ubuntu + windows, Node 20 + 22)
 
 ```bash
 npm run doctor

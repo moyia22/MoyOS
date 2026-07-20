@@ -38,6 +38,7 @@ function runGit(args, options = {}) {
 }
 
 function npmInstall(directory) {
+  ui.debug(`Executando npm install em: ${directory}`);
   const spin = spinner("Instalando dependencias...");
   const start = performance.now();
   spin.start();
